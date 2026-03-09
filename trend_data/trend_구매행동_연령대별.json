@@ -1,0 +1,84 @@
+{
+  "fetched_at": "2026-03-02T21:51:42.276988",
+  "group_key": "구매행동_연령대별",
+  "data": [
+    {
+      "period": "2025-03-01",
+      "ratio": 100,
+      "group_key": "구매행동_연령대별",
+      "display_name": "연령대별 건강"
+    },
+    {
+      "period": "2025-04-01",
+      "ratio": 95.62933,
+      "group_key": "구매행동_연령대별",
+      "display_name": "연령대별 건강"
+    },
+    {
+      "period": "2025-05-01",
+      "ratio": 81.68365,
+      "group_key": "구매행동_연령대별",
+      "display_name": "연령대별 건강"
+    },
+    {
+      "period": "2025-06-01",
+      "ratio": 83.88461,
+      "group_key": "구매행동_연령대별",
+      "display_name": "연령대별 건강"
+    },
+    {
+      "period": "2025-07-01",
+      "ratio": 84.67871,
+      "group_key": "구매행동_연령대별",
+      "display_name": "연령대별 건강"
+    },
+    {
+      "period": "2025-08-01",
+      "ratio": 85.00177,
+      "group_key": "구매행동_연령대별",
+      "display_name": "연령대별 건강"
+    },
+    {
+      "period": "2025-09-01",
+      "ratio": 80.73532,
+      "group_key": "구매행동_연령대별",
+      "display_name": "연령대별 건강"
+    },
+    {
+      "period": "2025-10-01",
+      "ratio": 63.4736,
+      "group_key": "구매행동_연령대별",
+      "display_name": "연령대별 건강"
+    },
+    {
+      "period": "2025-11-01",
+      "ratio": 59.56981,
+      "group_key": "구매행동_연령대별",
+      "display_name": "연령대별 건강"
+    },
+    {
+      "period": "2025-12-01",
+      "ratio": 52.41251,
+      "group_key": "구매행동_연령대별",
+      "display_name": "연령대별 건강"
+    },
+    {
+      "period": "2026-01-01",
+      "ratio": 60.40976,
+      "group_key": "구매행동_연령대별",
+      "display_name": "연령대별 건강"
+    },
+    {
+      "period": "2026-02-01",
+      "ratio": 54.91777,
+      "group_key": "구매행동_연령대별",
+      "display_name": "연령대별 건강"
+    },
+    {
+      "period": "2026-03-01",
+      "ratio": 1.76535,
+      "group_key": "구매행동_연령대별",
+      "display_name": "연령대별 건강"
+    }
+  ]
+}

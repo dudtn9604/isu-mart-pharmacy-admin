@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0f172a">
+  <title>이수마트약국 매대관리</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- 하단 탭바 (모바일 네이티브 느낌) -->
+  <nav id="tabbar">
+    <button class="tab-btn active" data-tab="map">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span>배치도</span>
+    </button>
+    <button class="tab-btn" data-tab="manage">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      <span>배치등록</span>
+    </button>
+  </nav>
+
+  <!-- ═══ 탭1: 매장 배치도 ═══ -->
+  <section id="tab-map" class="page active">
+    <header class="page-header">
+      <h1>매장 배치도</h1>
+      <span class="badge" id="map-badge">0대</span>
+    </header>
+    <!-- 상품 검색 -->
+    <div id="map-search-bar">
+      <div class="search-box">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="map-product-search" placeholder="상품명으로 위치 찾기..." autocomplete="off">
+        <button id="map-search-clear" class="map-search-clear hidden" onclick="clearMapSearch()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div id="map-search-results" class="map-search-results hidden"></div>
+    </div>
+    <div id="map-container">
+      <svg id="map-svg"></svg>
+    </div>
+    <!-- 매대 탭 시 하단 시트 -->
+    <div id="shelf-sheet" class="bottom-sheet hidden">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div>
+          <div id="sheet-title" class="sheet-title"></div>
+          <div id="sheet-subtitle" class="sheet-subtitle"></div>
+        </div>
+        <button class="icon-btn" onclick="closeSheet()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div id="sheet-grid-wrap">
+        <svg id="sheet-grid"></svg>
+      </div>
+      <div id="sheet-products"></div>
+    </div>
+  </section>
+
+  <!-- ═══ 탭2: 배치 등록 ═══ -->
+  <section id="tab-manage" class="page">
+    <header class="page-header">
+      <h1>배치 등록</h1>
+    </header>
+    <div class="form-card">
+      <!-- Step 1: 위치 선택 -->
+      <div class="form-step">
+        <label class="form-label">1. 매대 선택</label>
+        <div class="chip-group" id="type-chips"></div>
+      </div>
+      <div class="form-step">
+        <label class="form-label">2. 매대 번호</label>
+        <div class="chip-group scrollable" id="fixture-chips"></div>
+      </div>
+      <div class="form-step">
+        <label class="form-label">3. 단 선택</label>
+        <div class="chip-group" id="tier-chips"></div>
+      </div>
+      <div class="form-step">
+        <label class="form-label">4. 위치 범위</label>
+        <div class="range-row">
+          <div class="range-input">
+            <span>시작</span>
+            <input type="number" id="pos-start" min="1" value="1" inputmode="numeric">
+          </div>
+          <span class="range-sep">~</span>
+          <div class="range-input">
+            <span>끝</span>
+            <input type="number" id="pos-end" min="1" value="1" inputmode="numeric">
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: 상품 선택 -->
+      <div class="form-step">
+        <label class="form-label">5. 상품 검색</label>
+        <div class="search-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="product-search" placeholder="상품명 입력..." autocomplete="off">
+        </div>
+        <div id="product-results" class="product-list"></div>
+        <div id="selected-product" class="selected-product hidden"></div>
+      </div>
+
+      <input type="hidden" id="start-date" value="2026-03-09">
+
+      <div class="form-step">
+        <label class="form-label">7. 메모 (선택)</label>
+        <input type="text" id="notes" class="form-input" placeholder="참고사항...">
+      </div>
+
+      <button id="btn-submit" class="btn-primary" onclick="submitPlacement()" disabled>배치 등록</button>
+
+      <!-- 최근 등록 배치 목록 -->
+      <div class="form-step" style="margin-top:24px;">
+        <label class="form-label">최근 등록 배치 <span id="recent-badge" style="font-weight:400;color:var(--text3);"></span></label>
+        <div id="recent-placements"></div>
+        <button id="btn-more" class="btn-more hidden" onclick="showMoreRecent()">더보기</button>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- 토스트 메시지 -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

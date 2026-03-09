@@ -1,0 +1,84 @@
+{
+  "fetched_at": "2026-03-02T21:51:32.757534",
+  "group_key": "고민_수면스트레스",
+  "data": [
+    {
+      "period": "2025-03-01",
+      "ratio": 95.93435,
+      "group_key": "고민_수면스트레스",
+      "display_name": "수면·스트레스 고민"
+    },
+    {
+      "period": "2025-04-01",
+      "ratio": 93.69114,
+      "group_key": "고민_수면스트레스",
+      "display_name": "수면·스트레스 고민"
+    },
+    {
+      "period": "2025-05-01",
+      "ratio": 100,
+      "group_key": "고민_수면스트레스",
+      "display_name": "수면·스트레스 고민"
+    },
+    {
+      "period": "2025-06-01",
+      "ratio": 86.10726,
+      "group_key": "고민_수면스트레스",
+      "display_name": "수면·스트레스 고민"
+    },
+    {
+      "period": "2025-07-01",
+      "ratio": 88.36006,
+      "group_key": "고민_수면스트레스",
+      "display_name": "수면·스트레스 고민"
+    },
+    {
+      "period": "2025-08-01",
+      "ratio": 90.1495,
+      "group_key": "고민_수면스트레스",
+      "display_name": "수면·스트레스 고민"
+    },
+    {
+      "period": "2025-09-01",
+      "ratio": 79.42388,
+      "group_key": "고민_수면스트레스",
+      "display_name": "수면·스트레스 고민"
+    },
+    {
+      "period": "2025-10-01",
+      "ratio": 73.75324,
+      "group_key": "고민_수면스트레스",
+      "display_name": "수면·스트레스 고민"
+    },
+    {
+      "period": "2025-11-01",
+      "ratio": 64.20705,
+      "group_key": "고민_수면스트레스",
+      "display_name": "수면·스트레스 고민"
+    },
+    {
+      "period": "2025-12-01",
+      "ratio": 57.94134,
+      "group_key": "고민_수면스트레스",
+      "display_name": "수면·스트레스 고민"
+    },
+    {
+      "period": "2026-01-01",
+      "ratio": 62.62602,
+      "group_key": "고민_수면스트레스",
+      "display_name": "수면·스트레스 고민"
+    },
+    {
+      "period": "2026-02-01",
+      "ratio": 52.27381,
+      "group_key": "고민_수면스트레스",
+      "display_name": "수면·스트레스 고민"
+    },
+    {
+      "period": "2026-03-01",
+      "ratio": 1.59455,
+      "group_key": "고민_수면스트레스",
+      "display_name": "수면·스트레스 고민"
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "fetched_at": "2026-03-02T21:51:29.806772",
+  "group_key": "핫성분_장건강",
+  "data": [
+    {
+      "period": "2025-03-01",
+      "ratio": 82.54385,
+      "group_key": "핫성분_장건강",
+      "display_name": "장건강·프로바이오틱스"
+    },
+    {
+      "period": "2025-04-01",
+      "ratio": 80.97759,
+      "group_key": "핫성분_장건강",
+      "display_name": "장건강·프로바이오틱스"
+    },
+    {
+      "period": "2025-05-01",
+      "ratio": 76.20612,
+      "group_key": "핫성분_장건강",
+      "display_name": "장건강·프로바이오틱스"
+    },
+    {
+      "period": "2025-06-01",
+      "ratio": 76.99618,
+      "group_key": "핫성분_장건강",
+      "display_name": "장건강·프로바이오틱스"
+    },
+    {
+      "period": "2025-07-01",
+      "ratio": 84.88402,
+      "group_key": "핫성분_장건강",
+      "display_name": "장건강·프로바이오틱스"
+    },
+    {
+      "period": "2025-08-01",
+      "ratio": 100,
+      "group_key": "핫성분_장건강",
+      "display_name": "장건강·프로바이오틱스"
+    },
+    {
+      "period": "2025-09-01",
+      "ratio": 83.93365,
+      "group_key": "핫성분_장건강",
+      "display_name": "장건강·프로바이오틱스"
+    },
+    {
+      "period": "2025-10-01",
+      "ratio": 77.59939,
+      "group_key": "핫성분_장건강",
+      "display_name": "장건강·프로바이오틱스"
+    },
+    {
+      "period": "2025-11-01",
+      "ratio": 80.30056,
+      "group_key": "핫성분_장건강",
+      "display_name": "장건강·프로바이오틱스"
+    },
+    {
+      "period": "2025-12-01",
+      "ratio": 74.68138,
+      "group_key": "핫성분_장건강",
+      "display_name": "장건강·프로바이오틱스"
+    },
+    {
+      "period": "2026-01-01",
+      "ratio": 86.34187,
+      "group_key": "핫성분_장건강",
+      "display_name": "장건강·프로바이오틱스"
+    },
+    {
+      "period": "2026-02-01",
+      "ratio": 67.80964,
+      "group_key": "핫성분_장건강",
+      "display_name": "장건강·프로바이오틱스"
+    },
+    {
+      "period": "2026-03-01",
+      "ratio": 2.06336,
+      "group_key": "핫성분_장건강",
+      "display_name": "장건강·프로바이오틱스"
+    }
+  ]
+}

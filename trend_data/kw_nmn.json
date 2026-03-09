@@ -1,0 +1,41 @@
+{
+  "fetched_at": "2026-03-02T23:46:39.291688",
+  "keyword": "nmn",
+  "data": [
+    {
+      "period": "2025-09-01",
+      "ratio": 76.3487,
+      "keyword": "nmn"
+    },
+    {
+      "period": "2025-10-01",
+      "ratio": 62.20643,
+      "keyword": "nmn"
+    },
+    {
+      "period": "2025-11-01",
+      "ratio": 83.95875,
+      "keyword": "nmn"
+    },
+    {
+      "period": "2025-12-01",
+      "ratio": 100,
+      "keyword": "nmn"
+    },
+    {
+      "period": "2026-01-01",
+      "ratio": 68.41672,
+      "keyword": "nmn"
+    },
+    {
+      "period": "2026-02-01",
+      "ratio": 42.19849,
+      "keyword": "nmn"
+    },
+    {
+      "period": "2026-03-01",
+      "ratio": 1.1147,
+      "keyword": "nmn"
+    }
+  ]
+}

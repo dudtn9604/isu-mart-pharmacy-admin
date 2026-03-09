@@ -1,0 +1,84 @@
+{
+  "fetched_at": "2026-03-02T21:51:38.487299",
+  "group_key": "신트렌드_관절연골",
+  "data": [
+    {
+      "period": "2025-03-01",
+      "ratio": 97.09977,
+      "group_key": "신트렌드_관절연골",
+      "display_name": "관절·연골 건강"
+    },
+    {
+      "period": "2025-04-01",
+      "ratio": 89.78468,
+      "group_key": "신트렌드_관절연골",
+      "display_name": "관절·연골 건강"
+    },
+    {
+      "period": "2025-05-01",
+      "ratio": 100,
+      "group_key": "신트렌드_관절연골",
+      "display_name": "관절·연골 건강"
+    },
+    {
+      "period": "2025-06-01",
+      "ratio": 82.64549,
+      "group_key": "신트렌드_관절연골",
+      "display_name": "관절·연골 건강"
+    },
+    {
+      "period": "2025-07-01",
+      "ratio": 85.00482,
+      "group_key": "신트렌드_관절연골",
+      "display_name": "관절·연골 건강"
+    },
+    {
+      "period": "2025-08-01",
+      "ratio": 87.51523,
+      "group_key": "신트렌드_관절연골",
+      "display_name": "관절·연골 건강"
+    },
+    {
+      "period": "2025-09-01",
+      "ratio": 89.5691,
+      "group_key": "신트렌드_관절연골",
+      "display_name": "관절·연골 건강"
+    },
+    {
+      "period": "2025-10-01",
+      "ratio": 82.58759,
+      "group_key": "신트렌드_관절연골",
+      "display_name": "관절·연골 건강"
+    },
+    {
+      "period": "2025-11-01",
+      "ratio": 76.05105,
+      "group_key": "신트렌드_관절연골",
+      "display_name": "관절·연골 건강"
+    },
+    {
+      "period": "2025-12-01",
+      "ratio": 78.69544,
+      "group_key": "신트렌드_관절연골",
+      "display_name": "관절·연골 건강"
+    },
+    {
+      "period": "2026-01-01",
+      "ratio": 94.20174,
+      "group_key": "신트렌드_관절연골",
+      "display_name": "관절·연골 건강"
+    },
+    {
+      "period": "2026-02-01",
+      "ratio": 78.66787,
+      "group_key": "신트렌드_관절연골",
+      "display_name": "관절·연골 건강"
+    },
+    {
+      "period": "2026-03-01",
+      "ratio": 2.02133,
+      "group_key": "신트렌드_관절연골",
+      "display_name": "관절·연골 건강"
+    }
+  ]
+}

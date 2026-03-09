@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>매장 매대 배치 에디터</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; overflow: hidden; }
+
+#toolbar {
+  position: fixed; top: 0; left: 0; right: 0; height: 52px; z-index: 100;
+  background: #fff; border-bottom: 1px solid #ddd; display: flex; align-items: center;
+  padding: 0 16px; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+#toolbar .sep { width: 1px; height: 30px; background: #ddd; margin: 0 4px; }
+#toolbar button {
+  padding: 6px 14px; border: 1px solid #ccc; border-radius: 6px; background: #fff;
+  cursor: pointer; font-size: 13px; white-space: nowrap; transition: all 0.15s;
+}
+#toolbar button:hover { background: #f0f0f0; border-color: #aaa; }
+#toolbar button.active { background: #4A90D9; color: #fff; border-color: #4A90D9; }
+#toolbar button.danger { border-color: #e74c3c; color: #e74c3c; }
+#toolbar button.danger:hover { background: #e74c3c; color: #fff; }
+#toolbar .info { font-size: 12px; color: #888; margin-left: auto; }
+#toolbar select { padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+
+#sidebar {
+  position: fixed; top: 52px; right: 0; width: 260px; bottom: 0; z-index: 90;
+  background: #fff; border-left: 1px solid #ddd; padding: 12px; overflow-y: auto;
+  font-size: 13px;
+}
+#sidebar h3 { font-size: 14px; margin: 10px 0 6px; color: #333; }
+#sidebar .prop { display: flex; align-items: center; margin: 4px 0; }
+#sidebar .prop label { width: 50px; color: #666; font-size: 12px; }
+#sidebar .prop input, #sidebar .prop select {
+  flex: 1; padding: 4px 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;
+}
+#sidebar .fixture-list { max-height: 300px; overflow-y: auto; }
+#sidebar .fx-item {
+  padding: 4px 6px; margin: 2px 0; border-radius: 4px; cursor: pointer; font-size: 12px;
+  display: flex; justify-content: space-between;
+}
+#sidebar .fx-item:hover { background: #f0f0f0; }
+#sidebar .fx-item.selected { background: #e3f2fd; font-weight: bold; }
+
+#canvas-wrap {
+  position: fixed; top: 52px; left: 0; right: 260px; bottom: 0; overflow: hidden;
+  cursor: grab;
+}
+#canvas-wrap.dragging { cursor: grabbing; }
+#canvas-wrap.placing { cursor: crosshair; }
+
+svg { display: block; }
+.fixture { cursor: move; }
+.fixture:hover rect { stroke-width: 2.5; }
+.fixture.selected rect { stroke-width: 3; stroke-dasharray: none; filter: drop-shadow(0 0 4px rgba(0,0,0,0.3)); }
+.fixture text { pointer-events: none; user-select: none; }
+.facility { cursor: move; }
+.facility:hover rect { stroke-width: 2.5; }
+.facility.selected rect { stroke-width: 3; stroke-dasharray: 6,3; filter: drop-shadow(0 0 4px rgba(0,0,0,0.3)); }
+.facility text { pointer-events: none; user-select: none; }
+.fixed-element rect { pointer-events: none; }
+.fixed-element text { pointer-events: none; user-select: none; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <strong style="font-size:15px;">매대 배치 에디터</strong>
+  <div class="sep"></div>
+  <button onclick="addFixture('A')" style="border-color:#4A90D9;color:#4A90D9">+ A 기본</button>
+  <button onclick="addFixture('B')" style="border-color:#50C878;color:#50C878">+ B 연결</button>
+  <button onclick="addFixture('C')" style="border-color:#FF8C00;color:#FF8C00">+ C 엔드캡</button>
+  <div class="sep"></div>
+  <select id="addFacility" onchange="addFacilityFromSelect(this)" style="padding:5px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+    <option value="">+ 시설물...</option>
+    <option value="조제실">조제실</option>
+    <option value="창고">창고</option>
+    <option value="프로모션 존">프로모션 존</option>
+    <option value="냉장고">냉장고</option>
+    <option value="약품 수납장">약품 수납장</option>
+    <option value="POS">POS</option>
+    <option value="대기 공간">대기 공간</option>
+    <option value="기타">기타</option>
+  </select>
+  <div class="sep"></div>
+  <button onclick="rotateSelected()">회전 (R)</button>
+  <button onclick="deleteSelected()" class="danger">삭제 (Del)</button>
+  <div class="sep"></div>
+  <button onclick="undoAction()">되돌리기 (Z)</button>
+  <div class="sep"></div>
+  <label style="font-size:12px">스냅:</label>
+  <select id="snapSize" onchange="snapGrid=+this.value">
+    <option value="0">없음</option>
+    <option value="50">50mm</option>
+    <option value="100" selected>100mm</option>
+    <option value="200">200mm</option>
+  </select>
+  <div class="sep"></div>
+  <button onclick="exportJSON()">저장 (JSON)</button>
+  <button onclick="document.getElementById('importFile').click()">불러오기</button>
+  <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+  <span class="info" id="statusText">매대 50대 | 클릭: 선택, 드래그: 이동, R: 회전, Del: 삭제</span>
+</div>
+
+<div id="sidebar">
+  <h3>선택된 객체</h3>
+  <div id="selInfo" style="color:#999;font-size:12px;">없음 (매대/시설물을 클릭하세요)</div>
+  <div id="selProps" style="display:none;">
+    <div class="prop"><label>타입</label><span id="propType"></span></div>
+    <div class="prop"><label>번호</label><span id="propNo"></span></div>
+    <div class="prop"><label>X</label><input type="number" id="propX" step="10" onchange="updatePropPos()"></div>
+    <div class="prop"><label>Y</label><input type="number" id="propY" step="10" onchange="updatePropPos()"></div>
+    <div class="prop"><label>방향</label>
+      <select id="propOrient" onchange="updatePropOrient()">
+        <option value="V">V (수직)</option><option value="H">H (수평)</option>
+      </select>
+    </div>
+    <div class="prop"><label>존</label>
+      <select id="propZone" onchange="updatePropZone()">
+        <option value="상단">상단</option><option value="중단">중단</option><option value="하단">하단</option>
+      </select>
+    </div>
+    <div class="prop"><label>라벨</label><input type="text" id="propLabel" onchange="updatePropLabel()"></div>
+  </div>
+  <div id="selFacProps" style="display:none;">
+    <div class="prop"><label>이름</label><span id="facName" style="font-weight:bold;"></span></div>
+    <div class="prop"><label>X</label><input type="number" id="facX" step="10" onchange="updateFacPos()"></div>
+    <div class="prop"><label>Y</label><input type="number" id="facY" step="10" onchange="updateFacPos()"></div>
+    <div class="prop"><label>가로</label><input type="number" id="facW" step="50" onchange="updateFacSize()"></div>
+    <div class="prop"><label>세로</label><input type="number" id="facH" step="50" onchange="updateFacSize()"></div>
+    <div class="prop"><label>라벨</label><input type="text" id="facLabel" onchange="updateFacLabel()"></div>
+  </div>
+
+  <h3>매대 목록 (<span id="fxCount">0</span>)</h3>
+  <div style="margin-bottom:6px;">
+    <select id="listFilter" onchange="renderList()" style="width:100%;padding:4px;">
+      <option value="all">전체</option>
+      <option value="A">A 기본매대</option>
+      <option value="B">B 연결매대</option>
+      <option value="C">C 엔드캡매대</option>
+    </select>
+  </div>
+  <div class="fixture-list" id="fixtureList"></div>
+
+  <h3>시설물 목록 (<span id="facCount">0</span>)</h3>
+  <div class="fixture-list" id="facilityList"></div>
+</div>
+
+<div id="canvas-wrap">
+  <svg id="svg"></svg>
+</div>
+
+<script>
+// ─── 설정 ───
+const STORE_W = 12215, STORE_H = 17848;
+const TYPES = {
+  A: { name: '기본매대', w: 900, d: 360, color: '#4A90D9', light: 'rgba(74,144,217,0.25)' },
+  B: { name: '연결매대', w: 930, d: 360, color: '#50C878', light: 'rgba(80,200,120,0.25)' },
+  C: { name: '엔드캡매대', w: 636, d: 360, color: '#FF8C00', light: 'rgba(255,140,0,0.25)' },
+};
+// AUTO DOOR는 완전 고정 (이동/삭제 불가)
+const TRULY_FIXED = [
+  { name: 'AUTO DOOR', x: 4200, y: 0, w: 2200, h: 500, c: '#DDD' },
+];
+
+// 시설물 타입 정의 (이동/삭제 가능)
+const FACILITY_TYPES = {
+  '조제실':     { w: 3200, h: 2200, c: '#D4E6F1', border: '#5B9BD5' },
+  '창고':       { w: 1200, h: 3000, c: '#E8E8E8', border: '#999' },
+  '프로모션 존': { w: 2200, h: 1800, c: '#FCE4EC', border: '#E91E63' },
+  '냉장고':     { w: 1200, h: 5000, c: '#B3E5FC', border: '#03A9F4' },
+  '약품 수납장': { w: 3800, h: 1600, c: '#F3E5F5', border: '#9C27B0' },
+  'POS':         { w: 2200, h: 700,  c: '#E8D5B7', border: '#A0522D' },
+  '대기 공간':   { w: 1600, h: 1400, c: '#E8F5E9', border: '#4CAF50' },
+  '기타':        { w: 1000, h: 1000, c: '#F5F5F5', border: '#757575' },
+};
+
+let fixtures = [];
+let facilities = [];
+let selectedId = null;
+let selectedType = null; // 'fixture' or 'facility'
+let snapGrid = 100;
+let undoStack = [];
+let scale = 1;
+let panX = 0, panY = 0;
+let isPanning = false, panStartX = 0, panStartY = 0;
+let isDragging = false, dragFx = null, dragOffX = 0, dragOffY = 0;
+let placingType = null;
+let placingFacility = null;
+
+const svgNS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('svg');
+const wrap = document.getElementById('canvas-wrap');
+
+// ─── 초기 데이터 (시드) ───
+function generateInitialData() {
+  const positions = [];
+  const zones = [
+    { name: '상단', cols: [5400,4000,2600,1500], yStart: 1200, fixtures: [
+      [['A','V'],['A','V'],['B','V'],['A','V']],
+      [['A','V'],['B','V'],['A','V'],['B','V'],['C','V']],
+      [['A','V'],['A','V'],['B','V'],['A','V'],['C','V']],
+      [['C','V'],['C','V'],['C','V']],
+    ]},
+    { name: '중단', cols: [5000,3600,2200,1500], yStart: 5800, fixtures: [
+      [['A','V'],['B','V'],['A','V']],
+      [['A','V'],['A','V'],['B','V'],['A','V']],
+      [['B','V'],['A','V'],['B','V'],['C','V']],
+      [['C','V'],['C','V'],['B','V']],
+    ]},
+    { name: '하단', cols: [7500,6100,4700,3300,1800], yStart: 9800, fixtures: [
+      [['A','V'],['B','V'],['A','V'],['C','V']],
+      [['B','V'],['A','V'],['B','V'],['C','V']],
+      [['A','V'],['A','V'],['B','V'],['B','V']],
+      [['A','V'],['B','V'],['A','V'],['C','V']],
+      [['C','V'],['C','V'],['C','V']],
+    ]},
+  ];
+
+  zones.forEach(zone => {
+    zone.cols.forEach((colX, ci) => {
+      const fxs = zone.fixtures[ci];
+      let curY = zone.yStart;
+      fxs.forEach(([type, orient]) => {
+        const w = TYPES[type].w;
+        positions.push({ type, x: colX, y: curY, orient, zone: zone.name, label: '' });
+        curY += w + 100;
+      });
+    });
+  });
+
+  // 번호 부여 (상단 우측부터: y 작은 순 → x 큰 순)
+  positions.sort((a, b) => a.y - b.y || b.x - a.x);
+  const counters = { A: 0, B: 0, C: 0 };
+  positions.forEach(p => {
+    counters[p.type]++;
+    p.no = counters[p.type];
+    p.id = p.type + '-' + p.no;
+  });
+
+  return positions;
+}
+
+function generateInitialFacilities() {
+  return [
+    { id: 'fac-1', name: 'POS',          x: 3500, y: STORE_H-2900, w: 2200, h: 700,  label: '' },
+    { id: 'fac-2', name: '조제실',       x: 5800, y: STORE_H-2400, w: 3200, h: 2200, label: '' },
+    { id: 'fac-3', name: '창고',         x: 9200, y: STORE_H-11000, w: 1200, h: 3000, label: '' },
+    { id: 'fac-4', name: '프로모션 존',  x: 3200, y: STORE_H-8000, w: 2200, h: 1800, label: '' },
+    { id: 'fac-5', name: '대기 공간',    x: 6800, y: STORE_H-7200, w: 1600, h: 1400, label: '' },
+    { id: 'fac-6', name: '냉장고',       x: 10800, y: STORE_H-8000, w: 1200, h: 5000, label: '' },
+    { id: 'fac-7', name: '약품 수납장',  x: 1500, y: STORE_H-1800, w: 3800, h: 1600, label: '' },
+  ];
+}
+
+// ─── SVG 좌표 변환 (매장 Y축: 위=0, 아래=STORE_H → SVG Y축: 위=0, 아래=STORE_H) ───
+function toSVG(mx, my) { return [mx * scale + panX, my * scale + panY]; }
+function fromSVG(sx, sy) { return [(sx - panX) / scale, (sy - panY) / scale]; }
+
+function snap(v) { return snapGrid > 0 ? Math.round(v / snapGrid) * snapGrid : v; }
+
+// ─── 렌더링 ───
+function render() {
+  svg.innerHTML = '';
+  const ww = wrap.clientWidth, wh = wrap.clientHeight;
+  svg.setAttribute('width', ww);
+  svg.setAttribute('height', wh);
+
+  // 배경
+  const bg = document.createElementNS(svgNS, 'rect');
+  bg.setAttribute('width', ww); bg.setAttribute('height', wh);
+  bg.setAttribute('fill', '#f8f8f8');
+  svg.appendChild(bg);
+
+  // 매장 외벽
+  const [sx, sy] = toSVG(0, 0);
+  const sw = STORE_W * scale, sh = STORE_H * scale;
+  addRect(svg, sx, sy, sw, sh, '#333', 2, 'rgba(255,255,255,0.9)');
+
+  // 그리드
+  if (scale > 0.04) {
+    const gridSize = scale > 0.08 ? 1000 : 2000;
+    const gridG = document.createElementNS(svgNS, 'g');
+    gridG.setAttribute('opacity', '0.15');
+    for (let gx = 0; gx <= STORE_W; gx += gridSize) {
+      const [lx] = toSVG(gx, 0);
+      const line = document.createElementNS(svgNS, 'line');
+      line.setAttribute('x1', lx); line.setAttribute('y1', sy);
+      line.setAttribute('x2', lx); line.setAttribute('y2', sy + sh);
+      line.setAttribute('stroke', '#999'); line.setAttribute('stroke-width', 0.5);
+      gridG.appendChild(line);
+    }
+    for (let gy = 0; gy <= STORE_H; gy += gridSize) {
+      const [, ly] = toSVG(0, gy);
+      const line = document.createElementNS(svgNS, 'line');
+      line.setAttribute('x1', sx); line.setAttribute('y1', ly);
+      line.setAttribute('x2', sx + sw); line.setAttribute('y2', ly);
+      line.setAttribute('stroke', '#999'); line.setAttribute('stroke-width', 0.5);
+      gridG.appendChild(line);
+    }
+    svg.appendChild(gridG);
+  }
+
+  // 완전 고정 요소 (AUTO DOOR 등)
+  TRULY_FIXED.forEach(f => {
+    const g = document.createElementNS(svgNS, 'g');
+    g.setAttribute('class', 'fixed-element');
+    const [fx, fy] = toSVG(f.x, f.y);
+    addRect(g, fx, fy, f.w * scale, f.h * scale, '#aaa', 0.5, f.c);
+    addText(g, fx + f.w * scale / 2, fy + f.h * scale / 2, f.name, Math.max(8, 10 * scale / 0.065), '#666');
+    svg.appendChild(g);
+  });
+
+  // 이동 가능 시설물
+  facilities.forEach(fac => {
+    const g = document.createElementNS(svgNS, 'g');
+    const isSel = selectedType === 'facility' && fac.id === selectedId;
+    g.setAttribute('class', 'facility' + (isSel ? ' selected' : ''));
+    g.setAttribute('data-id', fac.id);
+
+    const ft = FACILITY_TYPES[fac.name] || FACILITY_TYPES['기타'];
+    const fw = fac.w * scale, fh = fac.h * scale;
+    const [fx, fy] = toSVG(fac.x, fac.y);
+
+    addRect(g, fx, fy, fw, fh, isSel ? ft.border : '#aaa', isSel ? 3 : 1, ft.c);
+    const displayName = fac.label || fac.name;
+    addText(g, fx + fw / 2, fy + fh / 2, displayName, Math.max(8, 10 * scale / 0.065), '#555');
+
+    g.addEventListener('mousedown', e => onFacilityMouseDown(e, fac));
+    svg.appendChild(g);
+  });
+
+  // 매대
+  fixtures.forEach(fx => {
+    const g = document.createElementNS(svgNS, 'g');
+    const isSelected = selectedType === 'fixture' && fx.id === selectedId;
+    g.setAttribute('class', 'fixture' + (isSelected ? ' selected' : ''));
+    g.setAttribute('data-id', fx.id);
+
+    const t = TYPES[fx.type];
+    const dx = (fx.orient === 'V' ? t.d : t.w) * scale;
+    const dy = (fx.orient === 'V' ? t.w : t.d) * scale;
+    const [rx, ry] = toSVG(fx.x, fx.y);
+    addRect(g, rx, ry, dx, dy, t.color, isSelected ? 3 : 1.5, isSelected ? t.color : t.light);
+
+    const label = fx.label || fx.id;
+    const fontSize = Math.max(6, Math.min(11, Math.min(dx, dy) * 0.4));
+    addText(g, rx + dx / 2, ry + dy / 2, label, fontSize, isSelected ? '#fff' : '#333');
+
+    g.addEventListener('mousedown', e => onFixtureMouseDown(e, fx));
+    svg.appendChild(g);
+  });
+
+  updateStatus();
+  renderList();
+}
+
+function addRect(parent, x, y, w, h, stroke, sw, fill) {
+  const r = document.createElementNS(svgNS, 'rect');
+  r.setAttribute('x', x); r.setAttribute('y', y);
+  r.setAttribute('width', w); r.setAttribute('height', h);
+  r.setAttribute('stroke', stroke); r.setAttribute('stroke-width', sw);
+  r.setAttribute('fill', fill || 'none'); r.setAttribute('rx', 2);
+  parent.appendChild(r);
+  return r;
+}
+
+function addText(parent, x, y, text, size, color) {
+  const t = document.createElementNS(svgNS, 'text');
+  t.setAttribute('x', x); t.setAttribute('y', y);
+  t.setAttribute('text-anchor', 'middle'); t.setAttribute('dominant-baseline', 'central');
+  t.setAttribute('font-size', size); t.setAttribute('fill', color);
+  t.setAttribute('font-family', '-apple-system, sans-serif');
+  t.textContent = text;
+  parent.appendChild(t);
+}
+
+// ─── 이벤트 ───
+function onFixtureMouseDown(e, fx) {
+  e.stopPropagation();
+  selectItem('fixture', fx.id);
+
+  const [mx, my] = fromSVG(e.clientX, e.clientY - 52);
+  dragFx = fx;
+  dragOffX = mx - fx.x;
+  dragOffY = my - fx.y;
+  isDragging = false;
+
+  saveUndo();
+}
+
+function onFacilityMouseDown(e, fac) {
+  e.stopPropagation();
+  selectItem('facility', fac.id);
+
+  const [mx, my] = fromSVG(e.clientX, e.clientY - 52);
+  dragFx = fac;
+  dragOffX = mx - fac.x;
+  dragOffY = my - fac.y;
+  isDragging = false;
+
+  saveUndo();
+}
+
+wrap.addEventListener('mousedown', e => {
+  if (e.target === wrap || e.target === svg || (e.target.tagName === 'rect' && !e.target.closest('.fixture') && !e.target.closest('.facility'))) {
+    if (placingType) {
+      const [mx, my] = fromSVG(e.clientX, e.clientY - 52);
+      placeNewFixture(snap(mx), snap(my));
+      return;
+    }
+    if (placingFacility) {
+      const [mx, my] = fromSVG(e.clientX, e.clientY - 52);
+      placeNewFacility(snap(mx), snap(my));
+      return;
+    }
+    // 패닝 시작
+    isPanning = true;
+    panStartX = e.clientX - panX;
+    panStartY = e.clientY - 52 - panY;
+    wrap.classList.add('dragging');
+    selectItem(null, null);
+  }
+});
+
+window.addEventListener('mousemove', e => {
+  if (dragFx) {
+    isDragging = true;
+    const [mx, my] = fromSVG(e.clientX, e.clientY - 52);
+    dragFx.x = snap(mx - dragOffX);
+    dragFx.y = snap(my - dragOffY);
+    // 매장 범위 제한
+    dragFx.x = Math.max(0, Math.min(STORE_W - 100, dragFx.x));
+    dragFx.y = Math.max(0, Math.min(STORE_H - 100, dragFx.y));
+    render();
+    updateProps();
+  }
+  if (isPanning) {
+    panX = e.clientX - panStartX;
+    panY = e.clientY - 52 - panStartY;
+    render();
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  dragFx = null;
+  isPanning = false;
+  wrap.classList.remove('dragging');
+});
+
+wrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  const [mx, my] = fromSVG(e.clientX, e.clientY - 52);
+  const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+  const newScale = Math.max(0.02, Math.min(0.2, scale * factor));
+  panX = e.clientX - mx * newScale;
+  panY = e.clientY - 52 - my * newScale;
+  scale = newScale;
+  render();
+}, { passive: false });
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'Delete' || e.key === 'Backspace') { deleteSelected(); e.preventDefault(); }
+  if (e.key === 'r' || e.key === 'R') rotateSelected();
+  if ((e.key === 'z' || e.key === 'Z') && (e.metaKey || e.ctrlKey)) { undoAction(); e.preventDefault(); }
+  if (e.key === 'Escape') { placingType = null; placingFacility = null; wrap.classList.remove('placing'); selectItem(null, null); }
+});
+
+// ─── 선택/조작 ───
+function selectItem(type, id) {
+  selectedType = type;
+  selectedId = id;
+  const selInfo = document.getElementById('selInfo');
+  const selProps = document.getElementById('selProps');
+  const selFacProps = document.getElementById('selFacProps');
+  if (!id) {
+    selInfo.style.display = 'block'; selProps.style.display = 'none'; selFacProps.style.display = 'none';
+  } else if (type === 'fixture') {
+    selInfo.style.display = 'none'; selProps.style.display = 'block'; selFacProps.style.display = 'none';
+    updateProps();
+  } else {
+    selInfo.style.display = 'none'; selProps.style.display = 'none'; selFacProps.style.display = 'block';
+    updateFacProps();
+  }
+  render();
+}
+
+// fixture 속성
+function updateProps() {
+  const fx = fixtures.find(f => f.id === selectedId);
+  if (!fx) return;
+  document.getElementById('propType').textContent = fx.type + ' (' + TYPES[fx.type].name + ')';
+  document.getElementById('propNo').textContent = fx.no;
+  document.getElementById('propX').value = Math.round(fx.x);
+  document.getElementById('propY').value = Math.round(fx.y);
+  document.getElementById('propOrient').value = fx.orient;
+  document.getElementById('propZone').value = fx.zone || '상단';
+  document.getElementById('propLabel').value = fx.label || '';
+}
+
+function updatePropPos() {
+  const fx = fixtures.find(f => f.id === selectedId);
+  if (!fx) return;
+  saveUndo();
+  fx.x = +document.getElementById('propX').value;
+  fx.y = +document.getElementById('propY').value;
+  render();
+}
+function updatePropOrient() {
+  const fx = fixtures.find(f => f.id === selectedId);
+  if (!fx) return;
+  saveUndo();
+  fx.orient = document.getElementById('propOrient').value;
+  render();
+}
+function updatePropZone() {
+  const fx = fixtures.find(f => f.id === selectedId);
+  if (!fx) return;
+  fx.zone = document.getElementById('propZone').value;
+}
+function updatePropLabel() {
+  const fx = fixtures.find(f => f.id === selectedId);
+  if (!fx) return;
+  fx.label = document.getElementById('propLabel').value;
+  render();
+}
+
+// facility 속성
+function updateFacProps() {
+  const fac = facilities.find(f => f.id === selectedId);
+  if (!fac) return;
+  document.getElementById('facName').textContent = fac.name;
+  document.getElementById('facX').value = Math.round(fac.x);
+  document.getElementById('facY').value = Math.round(fac.y);
+  document.getElementById('facW').value = Math.round(fac.w);
+  document.getElementById('facH').value = Math.round(fac.h);
+  document.getElementById('facLabel').value = fac.label || '';
+}
+
+function updateFacPos() {
+  const fac = facilities.find(f => f.id === selectedId);
+  if (!fac) return;
+  saveUndo();
+  fac.x = +document.getElementById('facX').value;
+  fac.y = +document.getElementById('facY').value;
+  render();
+}
+function updateFacSize() {
+  const fac = facilities.find(f => f.id === selectedId);
+  if (!fac) return;
+  saveUndo();
+  fac.w = +document.getElementById('facW').value;
+  fac.h = +document.getElementById('facH').value;
+  render();
+}
+function updateFacLabel() {
+  const fac = facilities.find(f => f.id === selectedId);
+  if (!fac) return;
+  fac.label = document.getElementById('facLabel').value;
+  render();
+}
+
+function rotateSelected() {
+  if (selectedType === 'fixture') {
+    const fx = fixtures.find(f => f.id === selectedId);
+    if (!fx) return;
+    saveUndo();
+    fx.orient = fx.orient === 'V' ? 'H' : 'V';
+    render(); updateProps();
+  } else if (selectedType === 'facility') {
+    const fac = facilities.find(f => f.id === selectedId);
+    if (!fac) return;
+    saveUndo();
+    const tmp = fac.w; fac.w = fac.h; fac.h = tmp;
+    render(); updateFacProps();
+  }
+}
+
+function deleteSelected() {
+  if (!selectedId) return;
+  saveUndo();
+  if (selectedType === 'fixture') {
+    fixtures = fixtures.filter(f => f.id !== selectedId);
+  } else if (selectedType === 'facility') {
+    facilities = facilities.filter(f => f.id !== selectedId);
+  }
+  selectedId = null; selectedType = null;
+  document.getElementById('selInfo').style.display = 'block';
+  document.getElementById('selProps').style.display = 'none';
+  document.getElementById('selFacProps').style.display = 'none';
+  render();
+}
+
+// ─── 추가 ───
+function addFixture(type) {
+  placingType = type;
+  placingFacility = null;
+  wrap.classList.add('placing');
+  document.getElementById('statusText').textContent = `${type} (${TYPES[type].name}) 배치 중... 클릭하여 위치 지정 (Esc 취소)`;
+}
+
+function placeNewFixture(x, y) {
+  if (!placingType) return;
+  saveUndo();
+  const type = placingType;
+  const existing = fixtures.filter(f => f.type === type);
+  const no = existing.length > 0 ? Math.max(...existing.map(f => f.no)) + 1 : 1;
+  const id = type + '-' + no;
+  fixtures.push({ id, type, no, x, y, orient: 'V', zone: '상단', label: '' });
+  placingType = null;
+  wrap.classList.remove('placing');
+  selectItem('fixture', id);
+  render();
+}
+
+function addFacilityFromSelect(sel) {
+  const name = sel.value;
+  if (!name) return;
+  sel.value = '';
+  placingFacility = name;
+  placingType = null;
+  wrap.classList.add('placing');
+  document.getElementById('statusText').textContent = `${name} 배치 중... 클릭하여 위치 지정 (Esc 취소)`;
+}
+
+function placeNewFacility(x, y) {
+  if (!placingFacility) return;
+  saveUndo();
+  const name = placingFacility;
+  const ft = FACILITY_TYPES[name] || FACILITY_TYPES['기타'];
+  const maxNo = facilities.length > 0 ? Math.max(...facilities.map(f => parseInt(f.id.split('-')[1]) || 0)) : 0;
+  const id = 'fac-' + (maxNo + 1);
+  facilities.push({ id, name, x, y, w: ft.w, h: ft.h, label: '' });
+  placingFacility = null;
+  wrap.classList.remove('placing');
+  selectItem('facility', id);
+  render();
+}
+
+// ─── Undo ───
+function saveUndo() {
+  undoStack.push(JSON.stringify({ fixtures, facilities }));
+  if (undoStack.length > 50) undoStack.shift();
+}
+
+function undoAction() {
+  if (undoStack.length === 0) return;
+  const state = JSON.parse(undoStack.pop());
+  fixtures = state.fixtures || [];
+  facilities = state.facilities || [];
+  selectedId = null; selectedType = null;
+  render();
+}
+
+// ─── 목록 ───
+function renderList() {
+  const filter = document.getElementById('listFilter').value;
+  const list = document.getElementById('fixtureList');
+  const fxCount = document.getElementById('fxCount');
+
+  const filtered = filter === 'all' ? fixtures : fixtures.filter(f => f.type === filter);
+  filtered.sort((a, b) => a.type.localeCompare(b.type) || a.no - b.no);
+
+  fxCount.textContent = `A:${fixtures.filter(f=>f.type==='A').length} B:${fixtures.filter(f=>f.type==='B').length} C:${fixtures.filter(f=>f.type==='C').length}`;
+
+  list.innerHTML = filtered.map(fx => {
+    const label = fx.label || fx.id;
+    const sel = (selectedType === 'fixture' && fx.id === selectedId) ? ' selected' : '';
+    return `<div class="fx-item${sel}" onclick="selectItem('fixture','${fx.id}')" style="border-left:3px solid ${TYPES[fx.type].color}">
+      <span>${label}</span><span style="color:#999;font-size:11px">${fx.zone} ${fx.orient}</span>
+    </div>`;
+  }).join('');
+
+  // 시설물 목록
+  const facList = document.getElementById('facilityList');
+  const facCount = document.getElementById('facCount');
+  facCount.textContent = facilities.length;
+  facList.innerHTML = facilities.map(fac => {
+    const label = fac.label || fac.name;
+    const ft = FACILITY_TYPES[fac.name] || FACILITY_TYPES['기타'];
+    const sel = (selectedType === 'facility' && fac.id === selectedId) ? ' selected' : '';
+    return `<div class="fx-item${sel}" onclick="selectItem('facility','${fac.id}')" style="border-left:3px solid ${ft.border}">
+      <span>${label}</span><span style="color:#999;font-size:11px">${fac.id}</span>
+    </div>`;
+  }).join('');
+}
+
+function updateStatus() {
+  if (!placingType) {
+    const a = fixtures.filter(f=>f.type==='A').length;
+    const b = fixtures.filter(f=>f.type==='B').length;
+    const c = fixtures.filter(f=>f.type==='C').length;
+    document.getElementById('statusText').textContent =
+      `A:${a} B:${b} C:${c} (총 ${a+b+c}대) | 클릭:선택 드래그:이동 R:회전 Del:삭제 스크롤:확대/축소`;
+  }
+}
+
+// ─── 저장/불러오기 ───
+function exportJSON() {
+  const data = {
+    store: { width: STORE_W, height: STORE_H },
+    fixtures: fixtures.map(f => ({
+      id: f.id, type: f.type, no: f.no,
+      x: Math.round(f.x), y: Math.round(f.y),
+      orient: f.orient, zone: f.zone, label: f.label || '',
+    })),
+    facilities: facilities.map(f => ({
+      id: f.id, name: f.name,
+      x: Math.round(f.x), y: Math.round(f.y),
+      w: Math.round(f.w), h: Math.round(f.h), label: f.label || '',
+    })),
+    exportedAt: new Date().toISOString(),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'shelf_layout_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+}
+
+function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.fixtures && Array.isArray(data.fixtures)) {
+        saveUndo();
+        fixtures = data.fixtures;
+        facilities = data.facilities || [];
+        selectedId = null; selectedType = null;
+        fitView();
+        render();
+        alert(`불러오기 완료! 매대 ${fixtures.length}대, 시설물 ${facilities.length}개`);
+      }
+    } catch (err) { alert('JSON 파일 파싱 오류: ' + err.message); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ─── 초기화 ───
+function fitView() {
+  const ww = wrap.clientWidth, wh = wrap.clientHeight;
+  const sx = (ww - 40) / STORE_W;
+  const sy = (wh - 40) / STORE_H;
+  scale = Math.min(sx, sy);
+  panX = (ww - STORE_W * scale) / 2;
+  panY = (wh - STORE_H * scale) / 2;
+}
+
+function init() {
+  // 로컬스토리지에서 복구 시도
+  const saved = localStorage.getItem('shelf_layout_v2');
+  if (saved) {
+    try {
+      const data = JSON.parse(saved);
+      fixtures = data.fixtures || [];
+      facilities = data.facilities || [];
+    } catch(e) {
+      fixtures = generateInitialData();
+      facilities = generateInitialFacilities();
+    }
+  } else {
+    // v1 마이그레이션
+    const v1 = localStorage.getItem('shelf_layout');
+    if (v1) {
+      try {
+        fixtures = JSON.parse(v1);
+        facilities = generateInitialFacilities();
+      } catch(e) {
+        fixtures = generateInitialData();
+        facilities = generateInitialFacilities();
+      }
+    } else {
+      fixtures = generateInitialData();
+      facilities = generateInitialFacilities();
+    }
+  }
+  fitView();
+  render();
+
+  // 자동 저장 (5초마다)
+  setInterval(() => {
+    localStorage.setItem('shelf_layout_v2', JSON.stringify({ fixtures, facilities }));
+  }, 5000);
+}
+
+window.addEventListener('resize', () => { fitView(); render(); });
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+{
+  "fetched_at": "2026-03-02T21:51:37.777127",
+  "group_key": "신트렌드_눈건강",
+  "data": [
+    {
+      "period": "2025-03-01",
+      "ratio": 100,
+      "group_key": "신트렌드_눈건강",
+      "display_name": "눈건강·블루라이트"
+    },
+    {
+      "period": "2025-04-01",
+      "ratio": 79.40588,
+      "group_key": "신트렌드_눈건강",
+      "display_name": "눈건강·블루라이트"
+    },
+    {
+      "period": "2025-05-01",
+      "ratio": 85.78149,
+      "group_key": "신트렌드_눈건강",
+      "display_name": "눈건강·블루라이트"
+    },
+    {
+      "period": "2025-06-01",
+      "ratio": 70.51615,
+      "group_key": "신트렌드_눈건강",
+      "display_name": "눈건강·블루라이트"
+    },
+    {
+      "period": "2025-07-01",
+      "ratio": 67.76014,
+      "group_key": "신트렌드_눈건강",
+      "display_name": "눈건강·블루라이트"
+    },
+    {
+      "period": "2025-08-01",
+      "ratio": 78.39437,
+      "group_key": "신트렌드_눈건강",
+      "display_name": "눈건강·블루라이트"
+    },
+    {
+      "period": "2025-09-01",
+      "ratio": 76.72717,
+      "group_key": "신트렌드_눈건강",
+      "display_name": "눈건강·블루라이트"
+    },
+    {
+      "period": "2025-10-01",
+      "ratio": 62.94978,
+      "group_key": "신트렌드_눈건강",
+      "display_name": "눈건강·블루라이트"
+    },
+    {
+      "period": "2025-11-01",
+      "ratio": 73.40743,
+      "group_key": "신트렌드_눈건강",
+      "display_name": "눈건강·블루라이트"
+    },
+    {
+      "period": "2025-12-01",
+      "ratio": 69.40002,
+      "group_key": "신트렌드_눈건강",
+      "display_name": "눈건강·블루라이트"
+    },
+    {
+      "period": "2026-01-01",
+      "ratio": 72.9663,
+      "group_key": "신트렌드_눈건강",
+      "display_name": "눈건강·블루라이트"
+    },
+    {
+      "period": "2026-02-01",
+      "ratio": 57.85156,
+      "group_key": "신트렌드_눈건강",
+      "display_name": "눈건강·블루라이트"
+    },
+    {
+      "period": "2026-03-01",
+      "ratio": 1.79513,
+      "group_key": "신트렌드_눈건강",
+      "display_name": "눈건강·블루라이트"
+    }
+  ]
+}

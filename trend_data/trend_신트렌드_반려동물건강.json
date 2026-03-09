@@ -1,0 +1,84 @@
+{
+  "fetched_at": "2026-03-02T21:51:40.969684",
+  "group_key": "신트렌드_반려동물건강",
+  "data": [
+    {
+      "period": "2025-03-01",
+      "ratio": 100,
+      "group_key": "신트렌드_반려동물건강",
+      "display_name": "반려동물 건강"
+    },
+    {
+      "period": "2025-04-01",
+      "ratio": 90.49299,
+      "group_key": "신트렌드_반려동물건강",
+      "display_name": "반려동물 건강"
+    },
+    {
+      "period": "2025-05-01",
+      "ratio": 81.12144,
+      "group_key": "신트렌드_반려동물건강",
+      "display_name": "반려동물 건강"
+    },
+    {
+      "period": "2025-06-01",
+      "ratio": 45.69742,
+      "group_key": "신트렌드_반려동물건강",
+      "display_name": "반려동물 건강"
+    },
+    {
+      "period": "2025-07-01",
+      "ratio": 52.9569,
+      "group_key": "신트렌드_반려동물건강",
+      "display_name": "반려동물 건강"
+    },
+    {
+      "period": "2025-08-01",
+      "ratio": 64.88789,
+      "group_key": "신트렌드_반려동물건강",
+      "display_name": "반려동물 건강"
+    },
+    {
+      "period": "2025-09-01",
+      "ratio": 52.5024,
+      "group_key": "신트렌드_반려동물건강",
+      "display_name": "반려동물 건강"
+    },
+    {
+      "period": "2025-10-01",
+      "ratio": 53.94966,
+      "group_key": "신트렌드_반려동물건강",
+      "display_name": "반려동물 건강"
+    },
+    {
+      "period": "2025-11-01",
+      "ratio": 60.7279,
+      "group_key": "신트렌드_반려동물건강",
+      "display_name": "반려동물 건강"
+    },
+    {
+      "period": "2025-12-01",
+      "ratio": 50.89473,
+      "group_key": "신트렌드_반려동물건강",
+      "display_name": "반려동물 건강"
+    },
+    {
+      "period": "2026-01-01",
+      "ratio": 60.94357,
+      "group_key": "신트렌드_반려동물건강",
+      "display_name": "반려동물 건강"
+    },
+    {
+      "period": "2026-02-01",
+      "ratio": 31.64367,
+      "group_key": "신트렌드_반려동물건강",
+      "display_name": "반려동물 건강"
+    },
+    {
+      "period": "2026-03-01",
+      "ratio": 0.96246,
+      "group_key": "신트렌드_반려동물건강",
+      "display_name": "반려동물 건강"
+    }
+  ]
+}

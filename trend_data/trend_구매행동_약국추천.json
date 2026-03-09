@@ -1,0 +1,84 @@
+{
+  "fetched_at": "2026-03-02T21:51:41.628597",
+  "group_key": "구매행동_약국추천",
+  "data": [
+    {
+      "period": "2025-03-01",
+      "ratio": 95.71536,
+      "group_key": "구매행동_약국추천",
+      "display_name": "약국 추천·구매"
+    },
+    {
+      "period": "2025-04-01",
+      "ratio": 83.15217,
+      "group_key": "구매행동_약국추천",
+      "display_name": "약국 추천·구매"
+    },
+    {
+      "period": "2025-05-01",
+      "ratio": 93.99646,
+      "group_key": "구매행동_약국추천",
+      "display_name": "약국 추천·구매"
+    },
+    {
+      "period": "2025-06-01",
+      "ratio": 77.26238,
+      "group_key": "구매행동_약국추천",
+      "display_name": "약국 추천·구매"
+    },
+    {
+      "period": "2025-07-01",
+      "ratio": 100,
+      "group_key": "구매행동_약국추천",
+      "display_name": "약국 추천·구매"
+    },
+    {
+      "period": "2025-08-01",
+      "ratio": 96.41051,
+      "group_key": "구매행동_약국추천",
+      "display_name": "약국 추천·구매"
+    },
+    {
+      "period": "2025-09-01",
+      "ratio": 91.53185,
+      "group_key": "구매행동_약국추천",
+      "display_name": "약국 추천·구매"
+    },
+    {
+      "period": "2025-10-01",
+      "ratio": 85.62942,
+      "group_key": "구매행동_약국추천",
+      "display_name": "약국 추천·구매"
+    },
+    {
+      "period": "2025-11-01",
+      "ratio": 83.5819,
+      "group_key": "구매행동_약국추천",
+      "display_name": "약국 추천·구매"
+    },
+    {
+      "period": "2025-12-01",
+      "ratio": 70.5637,
+      "group_key": "구매행동_약국추천",
+      "display_name": "약국 추천·구매"
+    },
+    {
+      "period": "2026-01-01",
+      "ratio": 72.10566,
+      "group_key": "구매행동_약국추천",
+      "display_name": "약국 추천·구매"
+    },
+    {
+      "period": "2026-02-01",
+      "ratio": 61.94388,
+      "group_key": "구매행동_약국추천",
+      "display_name": "약국 추천·구매"
+    },
+    {
+      "period": "2026-03-01",
+      "ratio": 1.64307,
+      "group_key": "구매행동_약국추천",
+      "display_name": "약국 추천·구매"
+    }
+  ]
+}

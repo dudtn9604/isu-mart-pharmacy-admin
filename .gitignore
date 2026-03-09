@@ -1,0 +1,32 @@
+# 민감 정보
+trend_config.py
+.env
+
+# 로컬 DB
+*.db
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# 엑셀 파일
+*.xlsx
+~$*
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Claude
+.claude/
+
+# Vercel (web 하위)
+web/.vercel/
+
+# 세션 로그
+SESSION_LOG.md
+cosmetics-dashboard

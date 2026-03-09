@@ -1,0 +1,41 @@
+{
+  "fetched_at": "2026-03-02T23:50:22.423184",
+  "keyword": "nmn 영양제",
+  "data": [
+    {
+      "period": "2025-09-01",
+      "ratio": 100,
+      "keyword": "nmn 영양제"
+    },
+    {
+      "period": "2025-10-01",
+      "ratio": 88.90275,
+      "keyword": "nmn 영양제"
+    },
+    {
+      "period": "2025-11-01",
+      "ratio": 86.67934,
+      "keyword": "nmn 영양제"
+    },
+    {
+      "period": "2025-12-01",
+      "ratio": 89.1082,
+      "keyword": "nmn 영양제"
+    },
+    {
+      "period": "2026-01-01",
+      "ratio": 97.69745,
+      "keyword": "nmn 영양제"
+    },
+    {
+      "period": "2026-02-01",
+      "ratio": 57.26982,
+      "keyword": "nmn 영양제"
+    },
+    {
+      "period": "2026-03-01",
+      "ratio": 1.60401,
+      "keyword": "nmn 영양제"
+    }
+  ]
+}

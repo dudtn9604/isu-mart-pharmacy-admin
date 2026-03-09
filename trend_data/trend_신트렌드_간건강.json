@@ -1,0 +1,84 @@
+{
+  "fetched_at": "2026-03-02T21:51:36.443300",
+  "group_key": "신트렌드_간건강",
+  "data": [
+    {
+      "period": "2025-03-01",
+      "ratio": 100,
+      "group_key": "신트렌드_간건강",
+      "display_name": "간건강·해독"
+    },
+    {
+      "period": "2025-04-01",
+      "ratio": 87.53339,
+      "group_key": "신트렌드_간건강",
+      "display_name": "간건강·해독"
+    },
+    {
+      "period": "2025-05-01",
+      "ratio": 84.49403,
+      "group_key": "신트렌드_간건강",
+      "display_name": "간건강·해독"
+    },
+    {
+      "period": "2025-06-01",
+      "ratio": 81.44228,
+      "group_key": "신트렌드_간건강",
+      "display_name": "간건강·해독"
+    },
+    {
+      "period": "2025-07-01",
+      "ratio": 75.29677,
+      "group_key": "신트렌드_간건강",
+      "display_name": "간건강·해독"
+    },
+    {
+      "period": "2025-08-01",
+      "ratio": 76.25939,
+      "group_key": "신트렌드_간건강",
+      "display_name": "간건강·해독"
+    },
+    {
+      "period": "2025-09-01",
+      "ratio": 69.63533,
+      "group_key": "신트렌드_간건강",
+      "display_name": "간건강·해독"
+    },
+    {
+      "period": "2025-10-01",
+      "ratio": 62.19048,
+      "group_key": "신트렌드_간건강",
+      "display_name": "간건강·해독"
+    },
+    {
+      "period": "2025-11-01",
+      "ratio": 61.4241,
+      "group_key": "신트렌드_간건강",
+      "display_name": "간건강·해독"
+    },
+    {
+      "period": "2025-12-01",
+      "ratio": 66.90101,
+      "group_key": "신트렌드_간건강",
+      "display_name": "간건강·해독"
+    },
+    {
+      "period": "2026-01-01",
+      "ratio": 73.84388,
+      "group_key": "신트렌드_간건강",
+      "display_name": "간건강·해독"
+    },
+    {
+      "period": "2026-02-01",
+      "ratio": 56.56347,
+      "group_key": "신트렌드_간건강",
+      "display_name": "간건강·해독"
+    },
+    {
+      "period": "2026-03-01",
+      "ratio": 1.73107,
+      "group_key": "신트렌드_간건강",
+      "display_name": "간건강·해독"
+    }
+  ]
+}

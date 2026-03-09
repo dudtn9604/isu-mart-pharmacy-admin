@@ -1,0 +1,84 @@
+{
+  "fetched_at": "2026-03-02T21:51:30.574827",
+  "group_key": "핫성분_항노화",
+  "data": [
+    {
+      "period": "2025-03-01",
+      "ratio": 100,
+      "group_key": "핫성분_항노화",
+      "display_name": "항노화·안티에이징"
+    },
+    {
+      "period": "2025-04-01",
+      "ratio": 96.32468,
+      "group_key": "핫성분_항노화",
+      "display_name": "항노화·안티에이징"
+    },
+    {
+      "period": "2025-05-01",
+      "ratio": 98.06568,
+      "group_key": "핫성분_항노화",
+      "display_name": "항노화·안티에이징"
+    },
+    {
+      "period": "2025-06-01",
+      "ratio": 84.24809,
+      "group_key": "핫성분_항노화",
+      "display_name": "항노화·안티에이징"
+    },
+    {
+      "period": "2025-07-01",
+      "ratio": 83.62254,
+      "group_key": "핫성분_항노화",
+      "display_name": "항노화·안티에이징"
+    },
+    {
+      "period": "2025-08-01",
+      "ratio": 83.69166,
+      "group_key": "핫성분_항노화",
+      "display_name": "항노화·안티에이징"
+    },
+    {
+      "period": "2025-09-01",
+      "ratio": 81.14613,
+      "group_key": "핫성분_항노화",
+      "display_name": "항노화·안티에이징"
+    },
+    {
+      "period": "2025-10-01",
+      "ratio": 79.92571,
+      "group_key": "핫성분_항노화",
+      "display_name": "항노화·안티에이징"
+    },
+    {
+      "period": "2025-11-01",
+      "ratio": 76.76896,
+      "group_key": "핫성분_항노화",
+      "display_name": "항노화·안티에이징"
+    },
+    {
+      "period": "2025-12-01",
+      "ratio": 74.66284,
+      "group_key": "핫성분_항노화",
+      "display_name": "항노화·안티에이징"
+    },
+    {
+      "period": "2026-01-01",
+      "ratio": 71.48802,
+      "group_key": "핫성분_항노화",
+      "display_name": "항노화·안티에이징"
+    },
+    {
+      "period": "2026-02-01",
+      "ratio": 59.26688,
+      "group_key": "핫성분_항노화",
+      "display_name": "항노화·안티에이징"
+    },
+    {
+      "period": "2026-03-01",
+      "ratio": 1.91223,
+      "group_key": "핫성분_항노화",
+      "display_name": "항노화·안티에이징"
+    }
+  ]
+}

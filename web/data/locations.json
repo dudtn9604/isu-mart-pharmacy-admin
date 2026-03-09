@@ -1,0 +1,2252 @@
+[
+  {
+    "id":1,
+    "shelf_type":"A",
+    "fixture_no":1,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-1 \/ 1단",
+    "enabled":0
+  },
+  {
+    "id":2,
+    "shelf_type":"A",
+    "fixture_no":1,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-1 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":3,
+    "shelf_type":"A",
+    "fixture_no":1,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-1 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":4,
+    "shelf_type":"A",
+    "fixture_no":1,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-1 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":5,
+    "shelf_type":"A",
+    "fixture_no":1,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-1 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":6,
+    "shelf_type":"A",
+    "fixture_no":2,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-2 \/ 1단",
+    "enabled":0
+  },
+  {
+    "id":7,
+    "shelf_type":"A",
+    "fixture_no":2,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-2 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":8,
+    "shelf_type":"A",
+    "fixture_no":2,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-2 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":9,
+    "shelf_type":"A",
+    "fixture_no":2,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-2 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":10,
+    "shelf_type":"A",
+    "fixture_no":2,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-2 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":11,
+    "shelf_type":"A",
+    "fixture_no":3,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-3 \/ 1단",
+    "enabled":0
+  },
+  {
+    "id":12,
+    "shelf_type":"A",
+    "fixture_no":3,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-3 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":13,
+    "shelf_type":"A",
+    "fixture_no":3,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-3 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":14,
+    "shelf_type":"A",
+    "fixture_no":3,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-3 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":15,
+    "shelf_type":"A",
+    "fixture_no":3,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-3 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":16,
+    "shelf_type":"A",
+    "fixture_no":4,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-4 \/ 1단",
+    "enabled":0
+  },
+  {
+    "id":17,
+    "shelf_type":"A",
+    "fixture_no":4,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-4 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":18,
+    "shelf_type":"A",
+    "fixture_no":4,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-4 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":19,
+    "shelf_type":"A",
+    "fixture_no":4,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-4 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":20,
+    "shelf_type":"A",
+    "fixture_no":4,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-4 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":21,
+    "shelf_type":"A",
+    "fixture_no":5,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-5 \/ 1단",
+    "enabled":0
+  },
+  {
+    "id":22,
+    "shelf_type":"A",
+    "fixture_no":5,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-5 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":23,
+    "shelf_type":"A",
+    "fixture_no":5,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-5 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":24,
+    "shelf_type":"A",
+    "fixture_no":5,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-5 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":25,
+    "shelf_type":"A",
+    "fixture_no":5,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-5 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":26,
+    "shelf_type":"A",
+    "fixture_no":6,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-6 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":27,
+    "shelf_type":"A",
+    "fixture_no":6,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-6 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":28,
+    "shelf_type":"A",
+    "fixture_no":6,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-6 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":29,
+    "shelf_type":"A",
+    "fixture_no":6,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-6 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":30,
+    "shelf_type":"A",
+    "fixture_no":6,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-6 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":31,
+    "shelf_type":"A",
+    "fixture_no":7,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-7 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":32,
+    "shelf_type":"A",
+    "fixture_no":7,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-7 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":33,
+    "shelf_type":"A",
+    "fixture_no":7,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-7 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":34,
+    "shelf_type":"A",
+    "fixture_no":7,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-7 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":35,
+    "shelf_type":"A",
+    "fixture_no":7,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-7 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":36,
+    "shelf_type":"A",
+    "fixture_no":8,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-8 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":37,
+    "shelf_type":"A",
+    "fixture_no":8,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-8 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":38,
+    "shelf_type":"A",
+    "fixture_no":8,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-8 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":39,
+    "shelf_type":"A",
+    "fixture_no":8,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-8 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":40,
+    "shelf_type":"A",
+    "fixture_no":8,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-8 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":41,
+    "shelf_type":"A",
+    "fixture_no":9,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-9 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":42,
+    "shelf_type":"A",
+    "fixture_no":9,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-9 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":43,
+    "shelf_type":"A",
+    "fixture_no":9,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-9 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":44,
+    "shelf_type":"A",
+    "fixture_no":9,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-9 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":45,
+    "shelf_type":"A",
+    "fixture_no":9,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-9 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":46,
+    "shelf_type":"A",
+    "fixture_no":10,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-10 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":47,
+    "shelf_type":"A",
+    "fixture_no":10,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-10 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":48,
+    "shelf_type":"A",
+    "fixture_no":10,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-10 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":49,
+    "shelf_type":"A",
+    "fixture_no":10,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-10 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":50,
+    "shelf_type":"A",
+    "fixture_no":10,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-10 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":51,
+    "shelf_type":"A",
+    "fixture_no":11,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-11 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":52,
+    "shelf_type":"A",
+    "fixture_no":11,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-11 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":53,
+    "shelf_type":"A",
+    "fixture_no":11,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-11 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":54,
+    "shelf_type":"A",
+    "fixture_no":11,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-11 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":55,
+    "shelf_type":"A",
+    "fixture_no":11,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-11 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":56,
+    "shelf_type":"A",
+    "fixture_no":12,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-12 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":57,
+    "shelf_type":"A",
+    "fixture_no":12,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-12 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":58,
+    "shelf_type":"A",
+    "fixture_no":12,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-12 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":59,
+    "shelf_type":"A",
+    "fixture_no":12,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-12 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":60,
+    "shelf_type":"A",
+    "fixture_no":12,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-12 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":61,
+    "shelf_type":"A",
+    "fixture_no":13,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-13 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":62,
+    "shelf_type":"A",
+    "fixture_no":13,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-13 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":63,
+    "shelf_type":"A",
+    "fixture_no":13,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-13 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":64,
+    "shelf_type":"A",
+    "fixture_no":13,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-13 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":65,
+    "shelf_type":"A",
+    "fixture_no":13,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-13 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":66,
+    "shelf_type":"A",
+    "fixture_no":14,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-14 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":67,
+    "shelf_type":"A",
+    "fixture_no":14,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-14 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":68,
+    "shelf_type":"A",
+    "fixture_no":14,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-14 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":69,
+    "shelf_type":"A",
+    "fixture_no":14,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-14 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":70,
+    "shelf_type":"A",
+    "fixture_no":14,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-14 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":71,
+    "shelf_type":"A",
+    "fixture_no":15,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-15 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":72,
+    "shelf_type":"A",
+    "fixture_no":15,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-15 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":73,
+    "shelf_type":"A",
+    "fixture_no":15,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-15 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":74,
+    "shelf_type":"A",
+    "fixture_no":15,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-15 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":75,
+    "shelf_type":"A",
+    "fixture_no":15,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-15 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":76,
+    "shelf_type":"A",
+    "fixture_no":16,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-16 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":77,
+    "shelf_type":"A",
+    "fixture_no":16,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-16 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":78,
+    "shelf_type":"A",
+    "fixture_no":16,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-16 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":79,
+    "shelf_type":"A",
+    "fixture_no":16,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-16 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":80,
+    "shelf_type":"A",
+    "fixture_no":16,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-16 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":81,
+    "shelf_type":"A",
+    "fixture_no":17,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-17 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":82,
+    "shelf_type":"A",
+    "fixture_no":17,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-17 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":83,
+    "shelf_type":"A",
+    "fixture_no":17,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-17 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":84,
+    "shelf_type":"A",
+    "fixture_no":17,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-17 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":85,
+    "shelf_type":"A",
+    "fixture_no":17,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-17 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":86,
+    "shelf_type":"A",
+    "fixture_no":18,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-18 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":87,
+    "shelf_type":"A",
+    "fixture_no":18,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-18 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":88,
+    "shelf_type":"A",
+    "fixture_no":18,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-18 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":89,
+    "shelf_type":"A",
+    "fixture_no":18,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-18 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":90,
+    "shelf_type":"A",
+    "fixture_no":18,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-18 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":91,
+    "shelf_type":"A",
+    "fixture_no":19,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-19 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":92,
+    "shelf_type":"A",
+    "fixture_no":19,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-19 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":93,
+    "shelf_type":"A",
+    "fixture_no":19,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-19 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":94,
+    "shelf_type":"A",
+    "fixture_no":19,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-19 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":95,
+    "shelf_type":"A",
+    "fixture_no":19,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-19 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":96,
+    "shelf_type":"A",
+    "fixture_no":20,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-20 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":97,
+    "shelf_type":"A",
+    "fixture_no":20,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-20 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":98,
+    "shelf_type":"A",
+    "fixture_no":20,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-20 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":99,
+    "shelf_type":"A",
+    "fixture_no":20,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-20 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":100,
+    "shelf_type":"A",
+    "fixture_no":20,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-20 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":101,
+    "shelf_type":"A",
+    "fixture_no":21,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"A-21 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":102,
+    "shelf_type":"A",
+    "fixture_no":21,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"A-21 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":103,
+    "shelf_type":"A",
+    "fixture_no":21,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"A-21 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":104,
+    "shelf_type":"A",
+    "fixture_no":21,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"A-21 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":105,
+    "shelf_type":"A",
+    "fixture_no":21,
+    "tier":5,
+    "tier_height":999,
+    "display_label":"A-21 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":106,
+    "shelf_type":"B",
+    "fixture_no":1,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"B-1 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":107,
+    "shelf_type":"B",
+    "fixture_no":1,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"B-1 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":108,
+    "shelf_type":"B",
+    "fixture_no":1,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"B-1 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":109,
+    "shelf_type":"B",
+    "fixture_no":1,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"B-1 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":110,
+    "shelf_type":"B",
+    "fixture_no":1,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"B-1 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":111,
+    "shelf_type":"B",
+    "fixture_no":2,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"B-2 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":112,
+    "shelf_type":"B",
+    "fixture_no":2,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"B-2 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":113,
+    "shelf_type":"B",
+    "fixture_no":2,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"B-2 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":114,
+    "shelf_type":"B",
+    "fixture_no":2,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"B-2 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":115,
+    "shelf_type":"B",
+    "fixture_no":2,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"B-2 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":116,
+    "shelf_type":"B",
+    "fixture_no":3,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"B-3 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":117,
+    "shelf_type":"B",
+    "fixture_no":3,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"B-3 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":118,
+    "shelf_type":"B",
+    "fixture_no":3,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"B-3 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":119,
+    "shelf_type":"B",
+    "fixture_no":3,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"B-3 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":120,
+    "shelf_type":"B",
+    "fixture_no":3,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"B-3 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":121,
+    "shelf_type":"B",
+    "fixture_no":4,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"B-4 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":122,
+    "shelf_type":"B",
+    "fixture_no":4,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"B-4 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":123,
+    "shelf_type":"B",
+    "fixture_no":4,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"B-4 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":124,
+    "shelf_type":"B",
+    "fixture_no":4,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"B-4 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":125,
+    "shelf_type":"B",
+    "fixture_no":4,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"B-4 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":126,
+    "shelf_type":"B",
+    "fixture_no":5,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"B-5 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":127,
+    "shelf_type":"B",
+    "fixture_no":5,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"B-5 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":128,
+    "shelf_type":"B",
+    "fixture_no":5,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"B-5 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":129,
+    "shelf_type":"B",
+    "fixture_no":5,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"B-5 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":130,
+    "shelf_type":"B",
+    "fixture_no":5,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"B-5 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":131,
+    "shelf_type":"B",
+    "fixture_no":6,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"B-6 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":132,
+    "shelf_type":"B",
+    "fixture_no":6,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"B-6 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":133,
+    "shelf_type":"B",
+    "fixture_no":6,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"B-6 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":134,
+    "shelf_type":"B",
+    "fixture_no":6,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"B-6 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":135,
+    "shelf_type":"B",
+    "fixture_no":6,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"B-6 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":136,
+    "shelf_type":"B",
+    "fixture_no":7,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"B-7 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":137,
+    "shelf_type":"B",
+    "fixture_no":7,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"B-7 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":138,
+    "shelf_type":"B",
+    "fixture_no":7,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"B-7 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":139,
+    "shelf_type":"B",
+    "fixture_no":7,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"B-7 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":140,
+    "shelf_type":"B",
+    "fixture_no":7,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"B-7 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":141,
+    "shelf_type":"B",
+    "fixture_no":8,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"B-8 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":142,
+    "shelf_type":"B",
+    "fixture_no":8,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"B-8 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":143,
+    "shelf_type":"B",
+    "fixture_no":8,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"B-8 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":144,
+    "shelf_type":"B",
+    "fixture_no":8,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"B-8 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":145,
+    "shelf_type":"B",
+    "fixture_no":8,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"B-8 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":146,
+    "shelf_type":"B",
+    "fixture_no":9,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"B-9 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":147,
+    "shelf_type":"B",
+    "fixture_no":9,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"B-9 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":148,
+    "shelf_type":"B",
+    "fixture_no":9,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"B-9 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":149,
+    "shelf_type":"B",
+    "fixture_no":9,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"B-9 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":150,
+    "shelf_type":"B",
+    "fixture_no":9,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"B-9 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":151,
+    "shelf_type":"B",
+    "fixture_no":10,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"B-10 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":152,
+    "shelf_type":"B",
+    "fixture_no":10,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"B-10 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":153,
+    "shelf_type":"B",
+    "fixture_no":10,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"B-10 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":154,
+    "shelf_type":"B",
+    "fixture_no":10,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"B-10 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":155,
+    "shelf_type":"B",
+    "fixture_no":10,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"B-10 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":156,
+    "shelf_type":"B",
+    "fixture_no":11,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"B-11 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":157,
+    "shelf_type":"B",
+    "fixture_no":11,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"B-11 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":158,
+    "shelf_type":"B",
+    "fixture_no":11,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"B-11 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":159,
+    "shelf_type":"B",
+    "fixture_no":11,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"B-11 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":160,
+    "shelf_type":"B",
+    "fixture_no":11,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"B-11 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":161,
+    "shelf_type":"B",
+    "fixture_no":12,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"B-12 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":162,
+    "shelf_type":"B",
+    "fixture_no":12,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"B-12 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":163,
+    "shelf_type":"B",
+    "fixture_no":12,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"B-12 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":164,
+    "shelf_type":"B",
+    "fixture_no":12,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"B-12 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":165,
+    "shelf_type":"B",
+    "fixture_no":12,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"B-12 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":166,
+    "shelf_type":"B",
+    "fixture_no":13,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"B-13 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":167,
+    "shelf_type":"B",
+    "fixture_no":13,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"B-13 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":168,
+    "shelf_type":"B",
+    "fixture_no":13,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"B-13 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":169,
+    "shelf_type":"B",
+    "fixture_no":13,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"B-13 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":170,
+    "shelf_type":"B",
+    "fixture_no":13,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"B-13 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":171,
+    "shelf_type":"B",
+    "fixture_no":14,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"B-14 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":172,
+    "shelf_type":"B",
+    "fixture_no":14,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"B-14 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":173,
+    "shelf_type":"B",
+    "fixture_no":14,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"B-14 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":174,
+    "shelf_type":"B",
+    "fixture_no":14,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"B-14 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":175,
+    "shelf_type":"B",
+    "fixture_no":14,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"B-14 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":176,
+    "shelf_type":"B",
+    "fixture_no":15,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"B-15 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":177,
+    "shelf_type":"B",
+    "fixture_no":15,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"B-15 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":178,
+    "shelf_type":"B",
+    "fixture_no":15,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"B-15 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":179,
+    "shelf_type":"B",
+    "fixture_no":15,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"B-15 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":180,
+    "shelf_type":"B",
+    "fixture_no":15,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"B-15 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":181,
+    "shelf_type":"C",
+    "fixture_no":1,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"C-1 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":182,
+    "shelf_type":"C",
+    "fixture_no":1,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"C-1 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":183,
+    "shelf_type":"C",
+    "fixture_no":1,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"C-1 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":184,
+    "shelf_type":"C",
+    "fixture_no":1,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"C-1 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":185,
+    "shelf_type":"C",
+    "fixture_no":1,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"C-1 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":186,
+    "shelf_type":"C",
+    "fixture_no":2,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"C-2 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":187,
+    "shelf_type":"C",
+    "fixture_no":2,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"C-2 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":188,
+    "shelf_type":"C",
+    "fixture_no":2,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"C-2 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":189,
+    "shelf_type":"C",
+    "fixture_no":2,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"C-2 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":190,
+    "shelf_type":"C",
+    "fixture_no":2,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"C-2 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":191,
+    "shelf_type":"C",
+    "fixture_no":3,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"C-3 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":192,
+    "shelf_type":"C",
+    "fixture_no":3,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"C-3 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":193,
+    "shelf_type":"C",
+    "fixture_no":3,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"C-3 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":194,
+    "shelf_type":"C",
+    "fixture_no":3,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"C-3 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":195,
+    "shelf_type":"C",
+    "fixture_no":3,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"C-3 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":196,
+    "shelf_type":"C",
+    "fixture_no":4,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"C-4 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":197,
+    "shelf_type":"C",
+    "fixture_no":4,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"C-4 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":198,
+    "shelf_type":"C",
+    "fixture_no":4,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"C-4 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":199,
+    "shelf_type":"C",
+    "fixture_no":4,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"C-4 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":200,
+    "shelf_type":"C",
+    "fixture_no":4,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"C-4 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":201,
+    "shelf_type":"C",
+    "fixture_no":5,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"C-5 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":202,
+    "shelf_type":"C",
+    "fixture_no":5,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"C-5 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":203,
+    "shelf_type":"C",
+    "fixture_no":5,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"C-5 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":204,
+    "shelf_type":"C",
+    "fixture_no":5,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"C-5 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":205,
+    "shelf_type":"C",
+    "fixture_no":5,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"C-5 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":206,
+    "shelf_type":"C",
+    "fixture_no":6,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"C-6 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":207,
+    "shelf_type":"C",
+    "fixture_no":6,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"C-6 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":208,
+    "shelf_type":"C",
+    "fixture_no":6,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"C-6 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":209,
+    "shelf_type":"C",
+    "fixture_no":6,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"C-6 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":210,
+    "shelf_type":"C",
+    "fixture_no":6,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"C-6 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":211,
+    "shelf_type":"C",
+    "fixture_no":7,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"C-7 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":212,
+    "shelf_type":"C",
+    "fixture_no":7,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"C-7 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":213,
+    "shelf_type":"C",
+    "fixture_no":7,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"C-7 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":214,
+    "shelf_type":"C",
+    "fixture_no":7,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"C-7 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":215,
+    "shelf_type":"C",
+    "fixture_no":7,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"C-7 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":216,
+    "shelf_type":"C",
+    "fixture_no":8,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"C-8 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":217,
+    "shelf_type":"C",
+    "fixture_no":8,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"C-8 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":218,
+    "shelf_type":"C",
+    "fixture_no":8,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"C-8 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":219,
+    "shelf_type":"C",
+    "fixture_no":8,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"C-8 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":220,
+    "shelf_type":"C",
+    "fixture_no":8,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"C-8 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":221,
+    "shelf_type":"C",
+    "fixture_no":9,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"C-9 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":222,
+    "shelf_type":"C",
+    "fixture_no":9,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"C-9 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":223,
+    "shelf_type":"C",
+    "fixture_no":9,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"C-9 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":224,
+    "shelf_type":"C",
+    "fixture_no":9,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"C-9 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":225,
+    "shelf_type":"C",
+    "fixture_no":9,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"C-9 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":226,
+    "shelf_type":"C",
+    "fixture_no":10,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"C-10 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":227,
+    "shelf_type":"C",
+    "fixture_no":10,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"C-10 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":228,
+    "shelf_type":"C",
+    "fixture_no":10,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"C-10 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":229,
+    "shelf_type":"C",
+    "fixture_no":10,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"C-10 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":230,
+    "shelf_type":"C",
+    "fixture_no":10,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"C-10 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":231,
+    "shelf_type":"C",
+    "fixture_no":11,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"C-11 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":232,
+    "shelf_type":"C",
+    "fixture_no":11,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"C-11 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":233,
+    "shelf_type":"C",
+    "fixture_no":11,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"C-11 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":234,
+    "shelf_type":"C",
+    "fixture_no":11,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"C-11 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":235,
+    "shelf_type":"C",
+    "fixture_no":11,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"C-11 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":236,
+    "shelf_type":"C",
+    "fixture_no":12,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"C-12 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":237,
+    "shelf_type":"C",
+    "fixture_no":12,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"C-12 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":238,
+    "shelf_type":"C",
+    "fixture_no":12,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"C-12 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":239,
+    "shelf_type":"C",
+    "fixture_no":12,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"C-12 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":240,
+    "shelf_type":"C",
+    "fixture_no":12,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"C-12 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":241,
+    "shelf_type":"C",
+    "fixture_no":13,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"C-13 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":242,
+    "shelf_type":"C",
+    "fixture_no":13,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"C-13 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":243,
+    "shelf_type":"C",
+    "fixture_no":13,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"C-13 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":244,
+    "shelf_type":"C",
+    "fixture_no":13,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"C-13 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":245,
+    "shelf_type":"C",
+    "fixture_no":13,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"C-13 \/ 5단",
+    "enabled":1
+  },
+  {
+    "id":246,
+    "shelf_type":"C",
+    "fixture_no":14,
+    "tier":1,
+    "tier_height":25,
+    "display_label":"C-14 \/ 1단",
+    "enabled":1
+  },
+  {
+    "id":247,
+    "shelf_type":"C",
+    "fixture_no":14,
+    "tier":2,
+    "tier_height":25,
+    "display_label":"C-14 \/ 2단",
+    "enabled":1
+  },
+  {
+    "id":248,
+    "shelf_type":"C",
+    "fixture_no":14,
+    "tier":3,
+    "tier_height":25,
+    "display_label":"C-14 \/ 3단",
+    "enabled":1
+  },
+  {
+    "id":249,
+    "shelf_type":"C",
+    "fixture_no":14,
+    "tier":4,
+    "tier_height":25,
+    "display_label":"C-14 \/ 4단",
+    "enabled":1
+  },
+  {
+    "id":250,
+    "shelf_type":"C",
+    "fixture_no":14,
+    "tier":5,
+    "tier_height":25,
+    "display_label":"C-14 \/ 5단",
+    "enabled":1
+  }
+]

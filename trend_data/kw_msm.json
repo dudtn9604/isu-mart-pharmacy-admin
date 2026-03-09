@@ -1,0 +1,41 @@
+{
+  "fetched_at": "2026-03-03T12:56:28.020476",
+  "keyword": "msm",
+  "data": [
+    {
+      "period": "2025-09-01",
+      "ratio": 100,
+      "keyword": "msm"
+    },
+    {
+      "period": "2025-10-01",
+      "ratio": 93.39439,
+      "keyword": "msm"
+    },
+    {
+      "period": "2025-11-01",
+      "ratio": 87.18777,
+      "keyword": "msm"
+    },
+    {
+      "period": "2025-12-01",
+      "ratio": 91.21407,
+      "keyword": "msm"
+    },
+    {
+      "period": "2026-01-01",
+      "ratio": 91.68891,
+      "keyword": "msm"
+    },
+    {
+      "period": "2026-02-01",
+      "ratio": 83.35534,
+      "keyword": "msm"
+    },
+    {
+      "period": "2026-03-01",
+      "ratio": 5.23165,
+      "keyword": "msm"
+    }
+  ]
+}

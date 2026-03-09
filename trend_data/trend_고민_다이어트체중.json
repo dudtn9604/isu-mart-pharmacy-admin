@@ -1,0 +1,84 @@
+{
+  "fetched_at": "2026-03-02T21:51:33.491620",
+  "group_key": "고민_다이어트체중",
+  "data": [
+    {
+      "period": "2025-03-01",
+      "ratio": 52.41108,
+      "group_key": "고민_다이어트체중",
+      "display_name": "다이어트·체중관리"
+    },
+    {
+      "period": "2025-04-01",
+      "ratio": 100,
+      "group_key": "고민_다이어트체중",
+      "display_name": "다이어트·체중관리"
+    },
+    {
+      "period": "2025-05-01",
+      "ratio": 68.75244,
+      "group_key": "고민_다이어트체중",
+      "display_name": "다이어트·체중관리"
+    },
+    {
+      "period": "2025-06-01",
+      "ratio": 54.23558,
+      "group_key": "고민_다이어트체중",
+      "display_name": "다이어트·체중관리"
+    },
+    {
+      "period": "2025-07-01",
+      "ratio": 51.18662,
+      "group_key": "고민_다이어트체중",
+      "display_name": "다이어트·체중관리"
+    },
+    {
+      "period": "2025-08-01",
+      "ratio": 61.23825,
+      "group_key": "고민_다이어트체중",
+      "display_name": "다이어트·체중관리"
+    },
+    {
+      "period": "2025-09-01",
+      "ratio": 43.79537,
+      "group_key": "고민_다이어트체중",
+      "display_name": "다이어트·체중관리"
+    },
+    {
+      "period": "2025-10-01",
+      "ratio": 31.9174,
+      "group_key": "고민_다이어트체중",
+      "display_name": "다이어트·체중관리"
+    },
+    {
+      "period": "2025-11-01",
+      "ratio": 27.14864,
+      "group_key": "고민_다이어트체중",
+      "display_name": "다이어트·체중관리"
+    },
+    {
+      "period": "2025-12-01",
+      "ratio": 25.95156,
+      "group_key": "고민_다이어트체중",
+      "display_name": "다이어트·체중관리"
+    },
+    {
+      "period": "2026-01-01",
+      "ratio": 27.10757,
+      "group_key": "고민_다이어트체중",
+      "display_name": "다이어트·체중관리"
+    },
+    {
+      "period": "2026-02-01",
+      "ratio": 22.61622,
+      "group_key": "고민_다이어트체중",
+      "display_name": "다이어트·체중관리"
+    },
+    {
+      "period": "2026-03-01",
+      "ratio": 0.56937,
+      "group_key": "고민_다이어트체중",
+      "display_name": "다이어트·체중관리"
+    }
+  ]
+}
