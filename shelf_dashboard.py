@@ -132,9 +132,11 @@ def load_product_list():
     try:
         from supabase_client import is_supabase_configured, fetch_products
         if not is_supabase_configured():
+            st.warning("Supabase 설정이 완료되지 않았습니다.")
             return pd.DataFrame()
         return fetch_products()
-    except Exception:
+    except Exception as e:
+        st.warning(f"상품 목록 로드 실패: {e}")
         return pd.DataFrame()
 
 
@@ -385,6 +387,8 @@ if menu == "🗺️ 매장 배치도":
 
     initial_data_json = _json.dumps(editor_fixtures, ensure_ascii=False)
     facilities_json = _json.dumps(editor_facilities_data, ensure_ascii=False)
+
+    st.caption("💡 맵 줌: **Ctrl+스크롤** (Mac: ⌘+스크롤) | 드래그로 이동")
 
     # ── 임베디드 에디터 HTML ──
     editor_html = f"""
@@ -819,6 +823,7 @@ if menu == "🗺️ 매장 배치도":
     }});
 
     svg.addEventListener('wheel', e => {{
+      if (!e.ctrlKey && !e.metaKey) return;  // 일반 스크롤은 페이지 스크롤로 통과
       e.preventDefault();
       const rect = root.getBoundingClientRect();
       const [mx, my] = fromSVG(e.clientX - rect.left, e.clientY - rect.top - 44);
@@ -1802,6 +1807,7 @@ elif menu == "📊 위치별 성과 분석":
       svg.addEventListener('mouseup', () => {{ dragging = false; svg.style.cursor = 'grab'; }});
       svg.addEventListener('mouseleave', () => {{ dragging = false; svg.style.cursor = 'grab'; }});
       svg.addEventListener('wheel', e => {{
+        if (!e.ctrlKey && !e.metaKey) return;  // 일반 스크롤은 페이지 스크롤로 통과
         e.preventDefault();
         const rc = svg.getBoundingClientRect();
         const mx = e.clientX - rc.left, my = e.clientY - rc.top;
@@ -1810,12 +1816,13 @@ elif menu == "📊 위치별 성과 분석":
         panX = mx - (mx - panX) * (ns / scale);
         panY = my - (my - panY) * (ns / scale);
         scale = ns; render();
-      }});
+      }}, {{ passive: false }});
 
       render();
     }})();
     </script>
     """
+    st.caption("💡 맵 줌: **Ctrl+스크롤** (Mac: ⌘+스크롤) | 드래그로 이동 | 매대 클릭으로 상세 보기")
     import streamlit.components.v1 as components
     components.html(perf_map_html, height=760, scrolling=False)
 
