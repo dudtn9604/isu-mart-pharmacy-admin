@@ -2836,7 +2836,7 @@ elif menu == "🛒 교차판매 분석":
                         else:
                             st.markdown(f"Lift = **{cell_val:.2f}** {lift_color}")
 
-                    pair_products = get_products_by_category_pair(items_df, sel_cat_a, sel_cat_b, top_n=30)
+                    pair_products = get_products_by_category_pair(items_df, sel_cat_a, sel_cat_b, top_n=30, min_count=1)
 
                     if pair_products.empty:
                         st.info("해당 카테고리 쌍의 교차구매 데이터가 없습니다.")
