@@ -392,7 +392,7 @@ if menu == "🗺️ 매장 배치도":
 
     # ── 임베디드 에디터 HTML ──
     editor_html = f"""
-    <div id="editor-root" style="width:100%;height:800px;position:relative;background:#f8f8f8;border:1px solid #ddd;border-radius:8px;overflow:hidden;">
+    <div id="editor-root" style="width:100%;height:480px;position:relative;background:#f8f8f8;border:1px solid #ddd;border-radius:8px;overflow:hidden;">
       <div id="toolbar" style="height:44px;background:#fff;border-bottom:1px solid #ddd;display:flex;align-items:center;padding:0 10px;gap:6px;font-size:13px;">
         <button onclick="addFixture('A')" style="padding:4px 10px;border:1px solid #4A90D9;color:#4A90D9;border-radius:4px;background:#fff;cursor:pointer;">+A</button>
         <button onclick="addFixture('B')" style="padding:4px 10px;border:1px solid #50C878;color:#50C878;border-radius:4px;background:#fff;cursor:pointer;">+B</button>
@@ -995,7 +995,7 @@ if menu == "🗺️ 매장 배치도":
 
     st.info("드래그: 화면이동 | Shift+드래그: 범위선택 | Shift+클릭: 추가선택 | Ctrl+A: 전체 | R: 회전 | Del: 삭제 | 스크롤: 확대/축소")
 
-    st_html(editor_html, height=850, scrolling=False)
+    st_html(editor_html, height=540, scrolling=False)
 
     # 매대 목록 (하단)
     st.markdown("---")
@@ -1560,7 +1560,7 @@ elif menu == "📊 위치별 성과 분석":
 
     # ── 성과 맵 HTML ──
     perf_map_html = f"""
-    <div id="perf-root" style="width:100%;height:750px;position:relative;background:#1a1a2e;border:1px solid #333;border-radius:8px;overflow:hidden;">
+    <div id="perf-root" style="width:100%;height:480px;position:relative;background:#1a1a2e;border:1px solid #333;border-radius:8px;overflow:hidden;">
       <div id="perf-legend" style="position:absolute;top:8px;left:8px;z-index:10;background:rgba(0,0,0,0.7);color:#fff;padding:8px 12px;border-radius:6px;font-size:11px;max-width:200px;">
         <div style="font-weight:bold;margin-bottom:4px;">카테고리 범례</div>
         <div id="legend-items"></div>
@@ -1824,7 +1824,7 @@ elif menu == "📊 위치별 성과 분석":
     """
     st.caption("💡 맵 줌: **Ctrl+스크롤** (Mac: ⌘+스크롤) | 드래그로 이동 | 매대 클릭으로 상세 보기")
     import streamlit.components.v1 as components
-    components.html(perf_map_html, height=760, scrolling=False)
+    components.html(perf_map_html, height=500, scrolling=False)
 
     # ── 맵 아래: 매대 선택 + 상세 ──
     st.markdown("---")
@@ -2318,9 +2318,10 @@ elif menu == "📐 SKU 치수 관리":
             default_d = existing["depth"] if existing and existing.get("depth") else 0.0
 
         with col_e2:
-            edit_w = st.number_input("가로 (cm)", value=float(default_w), min_value=0.0, step=0.1, key="dim_w")
-            edit_h = st.number_input("높이 (cm)", value=float(default_h), min_value=0.0, step=0.1, key="dim_h")
-            edit_d = st.number_input("깊이 (cm)", value=float(default_d), min_value=0.0, step=0.1, key="dim_d")
+            _dk = edit_product or "_none"
+            edit_w = st.number_input("가로 (cm)", value=float(default_w), min_value=0.0, step=0.1, key=f"dim_w_{_dk}")
+            edit_h = st.number_input("높이 (cm)", value=float(default_h), min_value=0.0, step=0.1, key=f"dim_h_{_dk}")
+            edit_d = st.number_input("깊이 (cm)", value=float(default_d), min_value=0.0, step=0.1, key=f"dim_d_{_dk}")
 
         if existing:
             st.info(f"기존 데이터: {existing.get('width')}x{existing.get('height')}x{existing.get('depth')}cm — 분류: {existing.get('size_class')}")
