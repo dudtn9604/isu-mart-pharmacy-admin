@@ -2334,6 +2334,50 @@ elif menu == "📐 SKU 치수 관리":
             else:
                 st.warning("상품명과 높이를 입력해 주세요.")
 
+        # ── 치수 미기입 제품 목록 ──
+        st.markdown("---")
+        st.subheader("치수 미기입 제품")
+        st.caption("현재 매대에 배치되어 있지만 치수가 등록되지 않은 상품입니다.")
+
+        placements = get_current_placements()
+        all_dims = get_all_dimensions()
+        if not placements.empty:
+            placed_names = set(placements["product_name"].dropna().unique())
+            dim_names = set(all_dims["product_name"].unique()) if not all_dims.empty else set()
+            missing = sorted(placed_names - dim_names)
+
+            if missing:
+                st.warning(f"치수 미기입 제품: **{len(missing)}개**")
+                selected_missing = st.selectbox(
+                    "제품 선택 후 아래에서 치수를 입력하세요",
+                    missing, key="dim_missing_select",
+                )
+                # 선택된 제품의 배치 위치 표시
+                if selected_missing:
+                    locs = placements[placements["product_name"] == selected_missing]
+                    loc_strs = [f"{r.get('shelf_type','')}-{r.get('fixture_no','')}/{r.get('tier','')}단"
+                                for _, r in locs.iterrows()]
+                    st.info(f"📍 배치 위치: {', '.join(loc_strs)}")
+
+                    mc1, mc2 = st.columns(2)
+                    with mc1:
+                        mw = st.number_input("가로 (cm)", value=0.0, min_value=0.0, step=0.1, key=f"miss_w_{selected_missing}")
+                        mh = st.number_input("높이 (cm)", value=0.0, min_value=0.0, step=0.1, key=f"miss_h_{selected_missing}")
+                        md = st.number_input("깊이 (cm)", value=0.0, min_value=0.0, step=0.1, key=f"miss_d_{selected_missing}")
+                    with mc2:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        if st.button("저장", type="primary", key="btn_miss_save"):
+                            if mh > 0:
+                                upsert_dimension(selected_missing, mw if mw > 0 else None, mh, md if md > 0 else None)
+                                st.success(f"저장 완료! {selected_missing} — {mw}x{mh}x{md}cm")
+                                st.rerun()
+                            else:
+                                st.warning("높이는 필수 입력입니다.")
+            else:
+                st.success("모든 배치 제품의 치수가 등록되어 있습니다! ✅")
+        else:
+            st.info("현재 배치된 제품이 없습니다.")
+
         st.markdown("---")
         st.subheader("일괄 업로드 (Excel/CSV)")
         st.caption("컬럼: product_name(상품명), width(가로), height(높이), depth(깊이)")
