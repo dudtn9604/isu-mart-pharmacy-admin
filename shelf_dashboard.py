@@ -2627,8 +2627,8 @@ elif menu == "🛒 교차판매 분석":
     if items_df.empty:
         st.warning("해당 기간에 주문 데이터가 없습니다.")
     else:
-        tab_product, tab_category, tab_placement = st.tabs([
-            "🔍 상품별 교차판매", "📊 카테고리 교차분석", "🗺️ 배치 제안"
+        tab_category, tab_product, tab_placement = st.tabs([
+            "📊 카테고리 교차분석", "🔍 상품별 교차판매", "🗺️ 배치 제안"
         ])
 
         # ━━━━ 탭 1: 상품별 교차판매 ━━━━
