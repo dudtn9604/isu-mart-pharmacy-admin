@@ -281,6 +281,16 @@ def update_fixture_position(
     zone: str = "",
     custom_label: str = "",
 ):
+    sb = _get_sb()
+    if sb:
+        try:
+            sb.table('fixture_positions').update({
+                'x_pos': x_pos, 'y_pos': y_pos, 'orientation': orientation,
+                'zone': zone, 'custom_label': custom_label,
+            }).eq('shelf_type', shelf_type).eq('fixture_no', fixture_no).execute()
+            return
+        except Exception:
+            pass
     conn = _get_conn()
     conn.execute(
         """UPDATE fixture_positions
@@ -297,6 +307,24 @@ def swap_fixture_positions(
     type2: str, no2: int,
 ):
     """두 매대의 위치를 교환"""
+    sb = _get_sb()
+    if sb:
+        try:
+            r1 = sb.table('fixture_positions').select('x_pos,y_pos,orientation,zone').eq('shelf_type', type1).eq('fixture_no', no1).execute()
+            r2 = sb.table('fixture_positions').select('x_pos,y_pos,orientation,zone').eq('shelf_type', type2).eq('fixture_no', no2).execute()
+            if r1.data and r2.data:
+                p1, p2 = r1.data[0], r2.data[0]
+                sb.table('fixture_positions').update({
+                    'x_pos': p2['x_pos'], 'y_pos': p2['y_pos'],
+                    'orientation': p2['orientation'], 'zone': p2['zone'],
+                }).eq('shelf_type', type1).eq('fixture_no', no1).execute()
+                sb.table('fixture_positions').update({
+                    'x_pos': p1['x_pos'], 'y_pos': p1['y_pos'],
+                    'orientation': p1['orientation'], 'zone': p1['zone'],
+                }).eq('shelf_type', type2).eq('fixture_no', no2).execute()
+            return
+        except Exception:
+            pass
     conn = _get_conn()
     cur = conn.cursor()
     pos1 = cur.execute(
@@ -324,6 +352,19 @@ def bulk_update_fixture_positions(fixture_list: List[Dict[str, Any]]):
     """에디터에서 받은 매대 배치 데이터를 일괄 업데이트.
     fixture_list: [{'type':'A', 'no':1, 'x':1000, 'y':2000, 'orient':'V', 'zone':'상단', 'label':''}, ...]
     """
+    sb = _get_sb()
+    if sb:
+        try:
+            for fx in fixture_list:
+                sb.table('fixture_positions').update({
+                    'x_pos': fx["x"], 'y_pos': fx["y"],
+                    'orientation': fx.get("orient", "V"),
+                    'zone': fx.get("zone", ""),
+                    'custom_label': fx.get("label", ""),
+                }).eq('shelf_type', fx["type"]).eq('fixture_no', fx["no"]).execute()
+            return
+        except Exception:
+            pass
     conn = _get_conn()
     cur = conn.cursor()
     for fx in fixture_list:
@@ -395,6 +436,13 @@ def _seed_dimensions(cur):
 # ──────────────────────────────────────
 
 def get_all_dimensions() -> pd.DataFrame:
+    sb = _get_sb()
+    if sb:
+        try:
+            r = sb.table('product_dimensions').select('*').order('product_name').execute()
+            return pd.DataFrame(r.data) if r.data else pd.DataFrame()
+        except Exception:
+            pass
     conn = _get_conn()
     df = pd.read_sql_query(
         "SELECT * FROM product_dimensions ORDER BY product_name", conn
@@ -404,6 +452,13 @@ def get_all_dimensions() -> pd.DataFrame:
 
 
 def get_dimension(product_name: str) -> Optional[Dict]:
+    sb = _get_sb()
+    if sb:
+        try:
+            r = sb.table('product_dimensions').select('*').eq('product_name', product_name).execute()
+            return r.data[0] if r.data else None
+        except Exception:
+            pass
     conn = _get_conn()
     row = conn.execute(
         "SELECT * FROM product_dimensions WHERE product_name = ?",
@@ -422,6 +477,17 @@ def upsert_dimension(
     """치수 추가 또는 업데이트"""
     size_class = _classify_size(height)
     dual_row = 1 if (depth is not None and depth <= 14.0) else 0
+    sb = _get_sb()
+    if sb:
+        try:
+            sb.table('product_dimensions').upsert({
+                'product_name': product_name,
+                'width': width, 'height': height, 'depth': depth,
+                'size_class': size_class, 'dual_row': dual_row,
+            }, on_conflict='product_name').execute()
+            return
+        except Exception:
+            pass
     conn = _get_conn()
     conn.execute(
         """INSERT INTO product_dimensions
@@ -438,6 +504,13 @@ def upsert_dimension(
 
 
 def delete_dimension(product_name: str):
+    sb = _get_sb()
+    if sb:
+        try:
+            sb.table('product_dimensions').delete().eq('product_name', product_name).execute()
+            return
+        except Exception:
+            pass
     conn = _get_conn()
     conn.execute(
         "DELETE FROM product_dimensions WHERE product_name = ?",
@@ -449,6 +522,24 @@ def delete_dimension(product_name: str):
 
 def bulk_upsert_dimensions(records: List[Dict]) -> int:
     """일괄 치수 추가/갱신"""
+    sb = _get_sb()
+    if sb:
+        try:
+            rows = []
+            for r in records:
+                h = float(r["height"])
+                d = float(r["depth"]) if r.get("depth") else None
+                rows.append({
+                    'product_name': r["product_name"],
+                    'width': float(r["width"]) if r.get("width") else None,
+                    'height': h, 'depth': d,
+                    'size_class': _classify_size(h),
+                    'dual_row': 1 if (d is not None and d <= 14.0) else 0,
+                })
+            sb.table('product_dimensions').upsert(rows, on_conflict='product_name').execute()
+            return len(rows)
+        except Exception:
+            pass
     conn = _get_conn()
     cur = conn.cursor()
     count = 0
@@ -729,13 +820,22 @@ def set_location_enabled(location_id: int, enabled: bool):
 
 def set_fixture_tiers_enabled(shelf_type: str, fixture_no: int, enabled_tiers: List[int]):
     """특정 매대의 사용 단 설정. enabled_tiers에 포함된 단만 활성화, 나머지 비활성화."""
+    sb = _get_sb()
+    if sb:
+        try:
+            # 해당 매대의 모든 단 비활성화
+            sb.table('shelf_locations').update({'enabled': 0}).eq('shelf_type', shelf_type).eq('fixture_no', fixture_no).execute()
+            # 지정된 단만 활성화
+            for t in enabled_tiers:
+                sb.table('shelf_locations').update({'enabled': 1}).eq('shelf_type', shelf_type).eq('fixture_no', fixture_no).eq('tier', t).execute()
+            return
+        except Exception:
+            pass
     conn = _get_conn()
-    # 해당 매대의 모든 단 비활성화
     conn.execute(
         "UPDATE shelf_locations SET enabled = 0 WHERE shelf_type = ? AND fixture_no = ?",
         (shelf_type, fixture_no),
     )
-    # 지정된 단만 활성화
     if enabled_tiers:
         placeholders = ",".join("?" * len(enabled_tiers))
         conn.execute(
@@ -748,6 +848,13 @@ def set_fixture_tiers_enabled(shelf_type: str, fixture_no: int, enabled_tiers: L
 
 def get_fixture_tier_status(shelf_type: str, fixture_no: int) -> pd.DataFrame:
     """특정 매대의 단별 활성/비활성 상태 조회"""
+    sb = _get_sb()
+    if sb:
+        try:
+            r = sb.table('shelf_locations').select('*').eq('shelf_type', shelf_type).eq('fixture_no', fixture_no).order('tier').execute()
+            return pd.DataFrame(r.data) if r.data else pd.DataFrame()
+        except Exception:
+            pass
     conn = _get_conn()
     df = pd.read_sql_query(
         "SELECT * FROM shelf_locations WHERE shelf_type = ? AND fixture_no = ? ORDER BY tier",
@@ -923,6 +1030,25 @@ def swap_placement(
     new_position_end: int = 1,
 ) -> int:
     """기존 배치 종료 + 새 배치 원자적 처리"""
+    sb = _get_sb()
+    if sb:
+        try:
+            sb.table('shelf_placements').update({
+                'end_date': end_date.isoformat()
+            }).eq('id', placement_id).execute()
+            r = sb.table('shelf_placements').insert({
+                'shelf_location_id': new_shelf_location_id,
+                'product_name': new_product_name,
+                'product_id': new_product_id,
+                'erp_category': new_erp_category,
+                'start_date': new_start_date.isoformat(),
+                'notes': new_notes,
+                'position_start': new_position_start,
+                'position_end': new_position_end,
+            }).execute()
+            return r.data[0]['id']
+        except Exception:
+            pass
     conn = _get_conn()
     cur = conn.cursor()
     try:
@@ -950,6 +1076,23 @@ def swap_placement(
 
 def bulk_add_placements(records: List[Dict[str, Any]]) -> int:
     """일괄 배치 추가. records: [{shelf_location_id, product_name, start_date, ...}]"""
+    sb = _get_sb()
+    if sb:
+        try:
+            rows = [{
+                'shelf_location_id': r["shelf_location_id"],
+                'product_name': r["product_name"],
+                'product_id': r.get("product_id"),
+                'erp_category': r.get("erp_category"),
+                'start_date': r["start_date"],
+                'notes': r.get("notes"),
+                'position_start': r.get("position_start", 1),
+                'position_end': r.get("position_end", 1),
+            } for r in records]
+            sb.table('shelf_placements').insert(rows).execute()
+            return len(rows)
+        except Exception:
+            pass
     conn = _get_conn()
     cur = conn.cursor()
     count = 0
