@@ -439,8 +439,17 @@ def get_all_dimensions() -> pd.DataFrame:
     sb = _get_sb()
     if sb:
         try:
-            r = sb.table('product_dimensions').select('*').order('product_name').execute()
-            return pd.DataFrame(r.data) if r.data else pd.DataFrame()
+            all_rows = []
+            offset = 0
+            while True:
+                r = sb.table('product_dimensions').select('*').order('product_name').range(offset, offset + 999).execute()
+                if not r.data:
+                    break
+                all_rows.extend(r.data)
+                if len(r.data) < 1000:
+                    break
+                offset += 1000
+            return pd.DataFrame(all_rows) if all_rows else pd.DataFrame()
         except Exception:
             pass
     conn = _get_conn()
