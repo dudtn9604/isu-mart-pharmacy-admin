@@ -1140,36 +1140,37 @@ def delete_placement(placement_id: int):
 # 매출 연동 (Supabase)
 # ──────────────────────────────────────
 
+def _load_order_items(date_from: str, date_to: str) -> pd.DataFrame:
+    """toss_orders에서 주문 아이템을 플래트닝하여 반환 (공통 헬퍼)"""
+    from supabase_client import (
+        is_supabase_configured,
+        fetch_orders,
+        flatten_order_items,
+        fetch_products,
+    )
+    if not is_supabase_configured():
+        return pd.DataFrame()
+
+    orders = fetch_orders(date_from=date_from, date_to=date_to)
+    if orders.empty:
+        return pd.DataFrame()
+
+    products_df = fetch_products()
+    items = flatten_order_items(orders, products_df=products_df)
+    return items
+
+
 def fetch_sales_for_placements(
     date_from: str,
     date_to: str,
 ) -> pd.DataFrame:
     """
-    배치된 상품들의 매출 데이터를 Supabase에서 가져와서
+    배치된 상품들의 매출 데이터를 toss_orders에서 가져와서
     placement 정보와 결합하여 반환
     """
-    from supabase_client import (
-        is_supabase_configured,
-        fetch_sale_cost_records,
-        fetch_products,
-    )
-
-    if not is_supabase_configured():
+    items = _load_order_items(date_from, date_to)
+    if items.empty:
         return pd.DataFrame()
-
-    # 매출 데이터 조회
-    sales_df = fetch_sale_cost_records(date_from=date_from, date_to=date_to)
-    if sales_df.empty:
-        return pd.DataFrame()
-
-    # 상품 마스터 (product_id → product_name 매핑)
-    products_df = fetch_products()
-    if products_df.empty:
-        return pd.DataFrame()
-
-    # product_id → product_name 매핑
-    prod_map = dict(zip(products_df["id"], products_df["name"]))
-    sales_df["product_name"] = sales_df["product_id"].map(prod_map)
 
     # 현재 배치 데이터
     placements = get_current_placements()
@@ -1177,18 +1178,14 @@ def fetch_sales_for_placements(
         return pd.DataFrame()
 
     # product_name 기준으로 매출 집계
-    sales_agg = sales_df.groupby("product_name").agg(
-        total_revenue=("selling_price_total", "sum"),
-        total_cost=("fifo_cost_total", "sum"),
-        total_profit=("gross_profit", "sum"),
-        sale_count=("id", "count"),
+    sales_agg = items.groupby("product_name").agg(
+        total_revenue=("total_price", "sum"),
+        sale_count=("product_name", "count"),
     ).reset_index()
 
     # 배치 데이터와 조인
     merged = placements.merge(sales_agg, on="product_name", how="left")
     merged["total_revenue"] = merged["total_revenue"].fillna(0)
-    merged["total_cost"] = merged["total_cost"].fillna(0)
-    merged["total_profit"] = merged["total_profit"].fillna(0)
     merged["sale_count"] = merged["sale_count"].fillna(0).astype(int)
 
     return merged
@@ -1200,39 +1197,19 @@ def fetch_sales_for_placement_history(
     end_date: str,
 ) -> Dict[str, Any]:
     """특정 상품의 특정 기간 매출 요약"""
-    from supabase_client import (
-        is_supabase_configured,
-        fetch_sale_cost_records,
-        fetch_products,
-    )
-
-    if not is_supabase_configured():
-        return {"total_revenue": 0, "total_profit": 0, "sale_count": 0, "days": 0}
-
-    products_df = fetch_products()
-    if products_df.empty:
-        return {"total_revenue": 0, "total_profit": 0, "sale_count": 0, "days": 0}
-
-    # product_name → product_id 찾기
-    match = products_df[products_df["name"] == product_name]
-    if match.empty:
-        return {"total_revenue": 0, "total_profit": 0, "sale_count": 0, "days": 0}
-
-    product_id = match.iloc[0]["id"]
-
-    sales_df = fetch_sale_cost_records(date_from=start_date, date_to=end_date)
-    if sales_df.empty:
-        return {"total_revenue": 0, "total_profit": 0, "sale_count": 0, "days": 0}
-
-    product_sales = sales_df[sales_df["product_id"] == product_id]
+    items = _load_order_items(start_date, end_date)
 
     d_from = pd.to_datetime(start_date)
     d_to = pd.to_datetime(end_date)
     days = max(1, (d_to - d_from).days + 1)
 
+    if items.empty:
+        return {"total_revenue": 0, "sale_count": 0, "days": days}
+
+    product_items = items[items["product_name"] == product_name]
+
     return {
-        "total_revenue": product_sales["selling_price_total"].sum() if not product_sales.empty else 0,
-        "total_profit": product_sales["gross_profit"].sum() if not product_sales.empty else 0,
-        "sale_count": len(product_sales),
+        "total_revenue": product_items["total_price"].sum() if not product_items.empty else 0,
+        "sale_count": len(product_items),
         "days": days,
     }
