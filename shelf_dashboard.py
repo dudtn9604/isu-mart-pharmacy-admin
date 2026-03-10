@@ -1561,8 +1561,8 @@ elif menu == "📊 위치별 성과 분석":
     # ── 성과 맵 HTML ──
     perf_map_html = f"""
     <div id="perf-root" style="width:100%;height:480px;position:relative;background:#1a1a2e;border:1px solid #333;border-radius:8px;overflow:hidden;">
-      <div id="perf-legend" style="position:absolute;top:8px;left:8px;z-index:10;background:rgba(0,0,0,0.7);color:#fff;padding:8px 12px;border-radius:6px;font-size:11px;max-width:200px;">
-        <div style="font-weight:bold;margin-bottom:4px;">카테고리 범례</div>
+      <div id="perf-legend" style="position:absolute;bottom:8px;left:8px;z-index:10;background:rgba(0,0,0,0.7);color:#fff;padding:8px 12px;border-radius:6px;font-size:11px;max-width:200px;cursor:grab;user-select:none;">
+        <div style="font-weight:bold;margin-bottom:4px;">카테고리 범례 <span style="font-weight:normal;color:#888;font-size:9px;">⠿ 드래그</span></div>
         <div id="legend-items"></div>
         <div style="margin-top:6px;border-top:1px solid #555;padding-top:4px;">
           <div style="display:flex;align-items:center;gap:4px;">
@@ -1614,6 +1614,33 @@ elif menu == "📊 위치별 성과 분석":
       if (Object.keys(catColors).length === 0) {{
         legendEl.innerHTML = '<span style="color:#888;">배치 카테고리 없음</span>';
       }}
+
+      // 범례 드래그
+      (function() {{
+        const legend = document.getElementById('perf-legend');
+        const parent = legend.parentElement;
+        let ldrag = false, offX = 0, offY = 0;
+        legend.addEventListener('mousedown', function(e) {{
+          ldrag = true;
+          const lr = legend.getBoundingClientRect();
+          offX = e.clientX - lr.left;
+          offY = e.clientY - lr.top;
+          legend.style.cursor = 'grabbing';
+          e.stopPropagation();
+          e.preventDefault();
+        }});
+        document.addEventListener('mousemove', function(e) {{
+          if (!ldrag) return;
+          const pr = parent.getBoundingClientRect();
+          legend.style.left = (e.clientX - pr.left - offX) + 'px';
+          legend.style.top = (e.clientY - pr.top - offY) + 'px';
+          legend.style.bottom = 'auto';
+          legend.style.right = 'auto';
+        }});
+        document.addEventListener('mouseup', function() {{
+          if (ldrag) {{ ldrag = false; legend.style.cursor = 'grab'; }}
+        }});
+      }})();
 
       function toSVG(mx, my) {{ return [mx * scale + panX, my * scale + panY]; }}
 
