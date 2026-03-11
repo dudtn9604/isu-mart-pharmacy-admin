@@ -44,6 +44,7 @@ ALTER TABLE shelf_placements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE fixture_positions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "shelf_locations_read" ON shelf_locations FOR SELECT USING (true);
+CREATE POLICY "shelf_locations_update" ON shelf_locations FOR UPDATE USING (true);
 CREATE POLICY "shelf_placements_read" ON shelf_placements FOR SELECT USING (true);
 CREATE POLICY "shelf_placements_insert" ON shelf_placements FOR INSERT WITH CHECK (true);
 CREATE POLICY "shelf_placements_update" ON shelf_placements FOR UPDATE USING (true);
