@@ -1338,6 +1338,70 @@ elif menu == "✏️ 배치 관리":
 
         all_locs = get_all_locations(include_disabled=True)
 
+        # ── 매대 타입별 활성 단 통계 ──
+        st.markdown("##### 📊 매장 전체 단 활용 현황")
+        stat_rows = []
+        for stype, scfg in SHELF_CONFIGS.items():
+            type_locs = all_locs[all_locs["shelf_type"] == stype]
+            total = len(type_locs)
+            active = len(type_locs[type_locs["enabled"] == 1])
+            inactive = total - active
+            fixture_count = type_locs["fixture_no"].nunique()
+            tiers_per = len(scfg["tiers"])
+            stat_rows.append({
+                "타입": f"{stype} ({scfg['name']})",
+                "매대 수": fixture_count,
+                "단/매대": tiers_per,
+                "전체 단": total,
+                "활성 단": active,
+                "비활성 단": inactive,
+                "활용률": f"{active / total * 100:.0f}%" if total > 0 else "-",
+            })
+        total_all = sum(r["전체 단"] for r in stat_rows)
+        active_all = sum(r["활성 단"] for r in stat_rows)
+        inactive_all = sum(r["비활성 단"] for r in stat_rows)
+        stat_rows.append({
+            "타입": "합계",
+            "매대 수": sum(r["매대 수"] for r in stat_rows),
+            "단/매대": "-",
+            "전체 단": total_all,
+            "활성 단": active_all,
+            "비활성 단": inactive_all,
+            "활용률": f"{active_all / total_all * 100:.0f}%" if total_all > 0 else "-",
+        })
+
+        import pandas as _pd_stat
+        stat_df = _pd_stat.DataFrame(stat_rows)
+        st.dataframe(stat_df, use_container_width=True, hide_index=True)
+
+        # ── 매대별 활성 단 한눈에 보기 ──
+        st.markdown("##### 🗂️ 매대별 활성 단 현황")
+        overview_type = st.selectbox(
+            "타입 필터", ["전체"] + list(SHELF_CONFIGS.keys()),
+            format_func=lambda x: x if x == "전체" else f"{x} ({SHELF_CONFIGS[x]['name']})",
+            key="tier_overview_type",
+        )
+        overview_locs = all_locs if overview_type == "전체" else all_locs[all_locs["shelf_type"] == overview_type]
+        overview_grp = overview_locs.groupby(["shelf_type", "fixture_no"]).agg(
+            활성=("enabled", lambda x: sum(x == 1)),
+            전체=("enabled", "count"),
+            활성단목록=("tier", lambda x: ", ".join(
+                f"{t}단" for t, e in sorted(zip(x, overview_locs.loc[x.index, "enabled"])) if e == 1
+            )),
+        ).reset_index()
+        overview_grp["매대"] = overview_grp.apply(lambda r: f"{r['shelf_type']}-{r['fixture_no']}", axis=1)
+        overview_grp["상태"] = overview_grp.apply(
+            lambda r: "✅ 전체 활성" if r["활성"] == r["전체"] else f"⚠️ {r['활성']}/{r['전체']}단", axis=1
+        )
+        st.dataframe(
+            overview_grp[["매대", "상태", "활성단목록"]].rename(columns={"활성단목록": "활성 단"}),
+            use_container_width=True, hide_index=True,
+        )
+
+        st.markdown("---")
+
+        # ── 개별 매대 단 설정 ──
+        st.markdown("##### ⚙️ 매대 단 설정 변경")
         cfg_col1, cfg_col2 = st.columns(2)
         with cfg_col1:
             cfg_type = st.selectbox(
@@ -1400,23 +1464,6 @@ elif menu == "✏️ 배치 관리":
         if _save_msg:
             st.toast(_save_msg)
             st.rerun()
-
-        # 비활성화된 매대 현황 요약
-        st.markdown("---")
-        st.markdown("##### 비활성화된 위치 현황")
-        disabled_locs = all_locs[all_locs["enabled"] == 0]
-        if disabled_locs.empty:
-            st.info("모든 매대의 모든 단이 활성화 상태입니다.")
-        else:
-            summary = disabled_locs.groupby(["shelf_type", "fixture_no"]).agg(
-                비활성단=("tier", lambda x: ", ".join(f"{t}단" for t in sorted(x))),
-                비활성수=("tier", "count"),
-            ).reset_index()
-            summary["매대"] = summary.apply(lambda r: f"{r['shelf_type']}-{r['fixture_no']}", axis=1)
-            st.dataframe(
-                summary[["매대", "비활성단", "비활성수"]],
-                use_container_width=True, hide_index=True,
-            )
 
 
 # ======================================================================

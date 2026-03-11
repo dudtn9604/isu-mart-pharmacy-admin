@@ -12,7 +12,9 @@ async function sbFetch(path, method = 'GET', body = null) {
       'apikey': SB_KEY,
       'Authorization': 'Bearer ' + SB_KEY,
       'Content-Type': 'application/json',
-      'Prefer': method === 'POST' ? 'return=representation' : undefined,
+      'Prefer': (method === 'POST' || method === 'PATCH')
+        ? (path.includes('on_conflict') ? 'return=representation,resolution=merge-duplicates' : 'return=representation')
+        : undefined,
     },
   };
   if (body) opts.body = JSON.stringify(body);
@@ -41,7 +43,7 @@ const CAT_PALETTE = ['#f87171','#38bdf8','#34d399','#fbbf24','#a78bfa','#fb923c'
 
 let fixtures = [], facilities = [], placements = [], locations = [], products = [];
 let catColors = {};
-let mapScale = 0.04, panX = 10, panY = 10;
+let mapScale = 0.04, panX = 10, panY = 10, mapAutoFitted = false;
 let selectedFx = null;
 let highlightedFxIds = new Set();  // 검색 하이라이트용
 
@@ -54,11 +56,17 @@ let formState = { type: null, fixtureNo: null, tier: null, productName: null, pr
 document.addEventListener('DOMContentLoaded', async () => {
   initTabs();
   await loadData();
+  await loadDimensions();
   initForm();
   initMapSearch();
+  initDimsSearch();
+  initTierConfig();
   renderMap();
   renderList();
   renderRecentPlacements();
+  renderDimsMissing();
+  renderTierStats();
+  renderTierOverview();
 });
 
 function initTabs() {
@@ -274,6 +282,17 @@ function renderMap() {
   const ww = container.clientWidth, wh = container.clientHeight;
   svg.setAttribute('viewBox', `0 0 ${ww} ${wh}`);
 
+  // 최초 1회: 맵을 화면에 꽉 차게 auto-fit
+  if (!mapAutoFitted && ww > 0 && wh > 0) {
+    mapAutoFitted = true;
+    const padX = 20, padY = 20;
+    const scaleX = (ww - padX * 2) / STORE_W;
+    const scaleY = (wh - padY * 2) / STORE_H;
+    mapScale = Math.min(scaleX, scaleY);
+    panX = (ww - STORE_W * mapScale) / 2;
+    panY = (wh - STORE_H * mapScale) / 2;
+  }
+
   function toSVG(mx, my) { return [mx * mapScale + panX, my * mapScale + panY]; }
 
   // 배경
@@ -338,7 +357,7 @@ function renderMap() {
     }
 
     // 라벨
-    const fs = Math.max(4, Math.min(8, Math.min(dx, dy) * 0.32));
+    const fs = Math.max(6, Math.min(11, Math.min(dx, dy) * 0.4));
     addText(g, ns, rx + dx / 2, ry + dy / 2, fx.id, fs, (isSel || isHL) ? '#fff' : '#cbd5e1');
 
     g.addEventListener('click', e => {
@@ -407,8 +426,9 @@ function setupMapTouch(container) {
     _mapDragging = false;
   });
 
-  // 휠 줌
+  // 휠 줌 — Ctrl/⌘+스크롤로만 줌, 일반 스크롤은 페이지로 통과
   container.addEventListener('wheel', e => {
+    if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     const rect = container.getBoundingClientRect();
     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
@@ -420,27 +440,18 @@ function setupMapTouch(container) {
     renderMap();
   }, { passive: false });
 
-  // 터치
+  // 터치 — 2-finger(핀치) 줌만 맵에서 처리, 1-finger는 페이지 스크롤로 통과
   container.addEventListener('touchstart', e => {
-    if (e.target.closest('g')) return;
-    if (e.touches.length === 1) {
-      _mapDragging = true; moved = false;
-      dsx = e.touches[0].clientX; dsy = e.touches[0].clientY;
-      psx = panX; psy = panY;
-    } else if (e.touches.length === 2) {
+    if (e.touches.length === 2) {
       _mapDragging = false;
       pinchDist = touchDist(e);
+      e.preventDefault();
     }
+    // 1-finger: 맵 드래그 안 함, 페이지 스크롤 허용
   }, { passive: false });
 
   container.addEventListener('touchmove', e => {
-    if (e.touches.length === 1 && _mapDragging) {
-      e.preventDefault();
-      moved = true;
-      panX = psx + (e.touches[0].clientX - dsx);
-      panY = psy + (e.touches[0].clientY - dsy);
-      renderMap();
-    } else if (e.touches.length === 2) {
+    if (e.touches.length === 2) {
       e.preventDefault();
       const nd = touchDist(e);
       if (pinchDist > 0) {
@@ -457,11 +468,10 @@ function setupMapTouch(container) {
       }
       pinchDist = nd;
     }
+    // 1-finger: 브라우저 기본 스크롤 허용 (preventDefault 안 함)
   }, { passive: false });
 
-  // touchend를 window에 걸어서 맵 밖으로 나가도 반드시 해제
   window.addEventListener('touchend', () => {
-    if (_mapDragging && !moved) closeSheet();
     _mapDragging = false; pinchDist = 0;
   });
   window.addEventListener('touchcancel', () => { _mapDragging = false; pinchDist = 0; });
@@ -633,16 +643,27 @@ function selectFixture(no) {
   formState.tier = null;
   updateChipActive('fixture-chips', no, t => t === `${formState.type}-${no}`);
 
-  // 단 칩 생성
+  // 단 칩 생성 (비활성 단 표시)
   const tierChips = document.getElementById('tier-chips');
   tierChips.innerHTML = '';
   const cfg = TYPES[formState.type];
+  const fxLocs = locations.filter(l => l.shelf_type === formState.type && Number(l.fixture_no) === no);
+  const disabledTiers = new Set(
+    fxLocs.filter(l => l.enabled === 0 || l.enabled === false).map(l => Number(l.tier))
+  );
   cfg.tiers.forEach((h, i) => {
     const tier = i + 1;
     const btn = document.createElement('button');
-    btn.className = 'chip';
-    btn.textContent = `${tier}단` + (h >= 999 ? ' (무제한)' : ` (${h}cm)`);
-    btn.addEventListener('click', () => selectTier(tier));
+    const isDisabled = disabledTiers.has(tier);
+    btn.className = 'chip' + (isDisabled ? ' disabled' : '');
+    btn.textContent = `${tier}단` + (h >= 999 ? ' (무제한)' : ` (${h}cm)`) + (isDisabled ? ' ✕' : '');
+    if (isDisabled) {
+      btn.style.opacity = '0.35';
+      btn.style.textDecoration = 'line-through';
+      btn.addEventListener('click', () => showToast('비활성화된 단입니다. 단 설정 탭에서 활성화하세요.', true));
+    } else {
+      btn.addEventListener('click', () => selectTier(tier));
+    }
     tierChips.appendChild(btn);
   });
   updateSubmitBtn();
@@ -807,12 +828,16 @@ function renderRecentPlacements() {
     const ps = p.position_start || 1, pe = p.position_end || 1;
     const posStr = ps === pe ? `${ps}번` : `${ps}~${pe}번`;
     const label = p.display_label || (p.shelf_type + '-' + p.fixture_no + ' / ' + p.tier + '단');
-    return `<div class="recent-card">
+    const pid = p.id;
+    return `<div class="recent-card" id="rc-${pid}">
       <div class="rc-left">
         <div class="rc-loc">${label} · ${posStr}</div>
         <div class="rc-prod">${p.product_name}${p.erp_category ? ' (' + p.erp_category + ')' : ''}</div>
       </div>
-      <div class="rc-right">${p.start_date || ''}</div>
+      <div class="rc-actions">
+        <button class="rc-edit-btn" onclick="openEditPlacement(${pid})">수정</button>
+        <button class="rc-del-btn" onclick="deletePlacement(${pid})">삭제</button>
+      </div>
     </div>`;
   }).join('');
 
@@ -826,6 +851,96 @@ function renderRecentPlacements() {
 function showMoreRecent() {
   recentShowCount += 10;
   renderRecentPlacements();
+}
+
+// ── 배치 수정 ──
+let editingPlacementId = null;
+
+function openEditPlacement(pid) {
+  const p = placements.find(x => x.id === pid);
+  if (!p) return;
+
+  editingPlacementId = pid;
+  const modal = document.getElementById('edit-modal');
+  document.getElementById('edit-product-name').textContent = p.product_name;
+  document.getElementById('edit-loc-label').textContent =
+    (p.display_label || p.shelf_type + '-' + p.fixture_no + ' / ' + p.tier + '단');
+
+  document.getElementById('edit-pos-start').value = p.position_start || 1;
+  document.getElementById('edit-pos-end').value = p.position_end || 1;
+  document.getElementById('edit-notes').value = p.notes || '';
+  modal.classList.remove('hidden');
+}
+
+function closeEditModal() {
+  editingPlacementId = null;
+  document.getElementById('edit-modal').classList.add('hidden');
+}
+
+async function saveEditPlacement() {
+  if (!editingPlacementId) return;
+  const pid = editingPlacementId;
+  const posStart = parseInt(document.getElementById('edit-pos-start').value) || 1;
+  const posEnd = parseInt(document.getElementById('edit-pos-end').value) || posStart;
+  const notes = document.getElementById('edit-notes').value || null;
+
+  const btn = document.getElementById('edit-save-btn');
+  btn.disabled = true;
+  btn.textContent = '저장 중...';
+
+  try {
+    await sbFetch(`shelf_placements?id=eq.${pid}`, 'PATCH', {
+      position_start: posStart,
+      position_end: posEnd,
+      notes: notes,
+    });
+
+    // 로컬 배열 갱신
+    const p = placements.find(x => x.id === pid);
+    if (p) {
+      p.position_start = posStart;
+      p.position_end = posEnd;
+      p.notes = notes;
+    }
+
+    showToast('수정 완료');
+    closeEditModal();
+    renderRecentPlacements();
+    renderMap();
+    renderList();
+  } catch (err) {
+    console.error('수정 실패:', err);
+    showToast('수정 실패: ' + err.message, true);
+  }
+
+  btn.disabled = false;
+  btn.textContent = '저장';
+}
+
+async function deletePlacement(pid) {
+  const p = placements.find(x => x.id === pid);
+  if (!p) return;
+  const label = p.display_label || (p.shelf_type + '-' + p.fixture_no);
+  if (!confirm(`"${p.product_name}" (${label}) 배치를 삭제하시겠습니까?`)) return;
+
+  try {
+    // end_date를 오늘로 설정 (소프트 삭제)
+    const today = new Date().toISOString().split('T')[0];
+    await sbFetch(`shelf_placements?id=eq.${pid}`, 'PATCH', { end_date: today });
+
+    // 로컬 배열에서 end_date 설정
+    const idx = placements.findIndex(x => x.id === pid);
+    if (idx >= 0) placements[idx].end_date = today;
+
+    showToast('배치 삭제 완료');
+    renderRecentPlacements();
+    renderMap();
+    renderList();
+    renderDimsMissing();
+  } catch (err) {
+    console.error('삭제 실패:', err);
+    showToast('삭제 실패: ' + err.message, true);
+  }
 }
 
 // ══════════════════════════════════════
@@ -903,4 +1018,412 @@ function highlightMatch(text, query) {
   const idx = text.toLowerCase().indexOf(query);
   if (idx === -1) return text;
   return text.substring(0, idx) + '<b style="color:var(--accent)">' + text.substring(idx, idx + query.length) + '</b>' + text.substring(idx + query.length);
+}
+
+// ══════════════════════════════════════
+// 치수 입력 탭
+// ══════════════════════════════════════
+let dimensions = [];  // {product_name, width, height, depth, size_class, dual_row}
+let dimsMissingShow = 10;
+let dimsSelectedProduct = null;
+
+async function loadDimensions() {
+  try {
+    // Supabase REST API 기본 limit=1000이므로 페이지네이션 필요
+    let all = [], offset = 0;
+    const pageSize = 1000;
+    while (true) {
+      const page = await sbFetch(
+        `product_dimensions?select=product_name,width,height,depth,size_class,dual_row&order=product_name&offset=${offset}&limit=${pageSize}`
+      );
+      all = all.concat(page);
+      if (page.length < pageSize) break;
+      offset += pageSize;
+    }
+    dimensions = all;
+    console.log(`치수 로드: ${dimensions.length}건`);
+  } catch (e) {
+    console.error('치수 로드 실패:', e);
+    dimensions = [];
+  }
+}
+
+function getMissingDimProducts() {
+  const dimNames = new Set(dimensions.map(d => d.product_name));
+  const active = placements.filter(p => !p.end_date);
+  const missing = [];
+  const seen = new Set();
+  active.forEach(p => {
+    if (!dimNames.has(p.product_name) && !seen.has(p.product_name)) {
+      seen.add(p.product_name);
+      const label = (p.shelf_type || '') + '-' + (p.fixture_no || '') + ' / ' + (p.tier || '') + '단';
+      missing.push({ name: p.product_name, category: p.erp_category || '', location: label });
+    }
+  });
+  return missing;
+}
+
+function renderDimsMissing() {
+  const list = document.getElementById('dims-missing-list');
+  const badge = document.getElementById('dims-badge');
+  const btnMore = document.getElementById('dims-more-btn');
+  if (!list) return;
+
+  const missing = getMissingDimProducts();
+  badge.textContent = missing.length + '개 미입력';
+
+  const visible = missing.slice(0, dimsMissingShow);
+  list.innerHTML = visible.length === 0
+    ? '<p style="font-size:13px;color:var(--green);padding:12px 0;">모든 배치 제품의 치수가 입력되어 있습니다!</p>'
+    : visible.map(m => `<div class="dims-missing-card" onclick="selectDimsProduct('${escHtml(m.name)}')">
+        <div class="dmc-name">${m.name}</div>
+        <div class="dmc-meta">${m.category} · ${m.location}</div>
+      </div>`).join('');
+
+  if (missing.length > dimsMissingShow) {
+    btnMore.classList.remove('hidden');
+    btnMore.textContent = `더보기 (${missing.length - dimsMissingShow}개 더)`;
+  } else {
+    btnMore.classList.add('hidden');
+  }
+}
+
+function showMoreMissing() {
+  dimsMissingShow += 10;
+  renderDimsMissing();
+}
+
+function selectDimsProduct(name) {
+  dimsSelectedProduct = name;
+  document.getElementById('dims-search').value = name;
+  document.getElementById('dims-search-results').classList.add('hidden');
+  document.getElementById('dims-form').classList.remove('hidden');
+
+  document.getElementById('dims-selected').innerHTML =
+    `<div class="sp-name">${name}</div>
+     <button class="sp-clear" onclick="clearDimsSelection()">✕</button>`;
+
+  // 기존 치수 있으면 표시
+  const existing = dimensions.find(d => d.product_name === name);
+  const cur = document.getElementById('dims-current');
+  if (existing) {
+    cur.textContent = `기존 치수: 가로 ${existing.width || '-'}cm / 높이 ${existing.height || '-'}cm / 깊이 ${existing.depth || '-'}cm`;
+    document.getElementById('dims-width').value = existing.width || '';
+    document.getElementById('dims-height').value = existing.height || '';
+    document.getElementById('dims-depth').value = existing.depth || '';
+  } else {
+    cur.textContent = '치수 미등록 상품';
+    document.getElementById('dims-width').value = '';
+    document.getElementById('dims-height').value = '';
+    document.getElementById('dims-depth').value = '';
+  }
+}
+
+function clearDimsSelection() {
+  dimsSelectedProduct = null;
+  document.getElementById('dims-form').classList.add('hidden');
+  document.getElementById('dims-search').value = '';
+}
+
+function initDimsSearch() {
+  const input = document.getElementById('dims-search');
+  if (!input) return;
+  input.addEventListener('input', debounce(() => {
+    const q = input.value.trim().toLowerCase();
+    const results = document.getElementById('dims-search-results');
+    if (q.length < 1) { results.classList.add('hidden'); return; }
+
+    // 배치 제품 + 전체 제품에서 검색
+    const allNames = new Set([
+      ...placements.map(p => p.product_name),
+      ...products.map(p => p.name),
+    ]);
+    const matches = [...allNames].filter(n => n.toLowerCase().includes(q)).slice(0, 15);
+
+    if (matches.length === 0) {
+      results.innerHTML = '<div class="product-item" style="color:var(--text3);">결과 없음</div>';
+    } else {
+      results.innerHTML = matches.map(name => {
+        const dim = dimensions.find(d => d.product_name === name);
+        const status = dim ? `<span style="color:var(--green);font-size:10px;">✓ 등록</span>` : `<span style="color:var(--red);font-size:10px;">미등록</span>`;
+        return `<div class="product-item" onclick="selectDimsProduct('${escHtml(name)}')">
+          <div class="pi-name">${highlightMatch(name, q)} ${status}</div>
+        </div>`;
+      }).join('');
+    }
+    results.classList.remove('hidden');
+  }, 200));
+}
+
+// ══════════════════════════════════════
+// 매대 단 설정 탭
+// ══════════════════════════════════════
+let tierFormState = { type: null, fixtureNo: null, enabledTiers: new Set() };
+
+function initTierConfig() {
+  // 타입 칩 생성
+  const typeChips = document.getElementById('tier-type-chips');
+  if (!typeChips) return;
+  Object.keys(TYPES).forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'chip';
+    btn.textContent = `${t} (${TYPES[t].name})`;
+    btn.addEventListener('click', () => selectTierType(t));
+    typeChips.appendChild(btn);
+  });
+
+  // 현황 필터 칩
+  const filterChips = document.getElementById('tier-overview-filter');
+  ['전체', ...Object.keys(TYPES)].forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'chip' + (t === '전체' ? ' active' : '');
+    btn.textContent = t === '전체' ? '전체' : `${t} (${TYPES[t].name})`;
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#tier-overview-filter .chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      renderTierOverview(t === '전체' ? null : t);
+    });
+    filterChips.appendChild(btn);
+  });
+}
+
+function selectTierType(type) {
+  tierFormState.type = type;
+  tierFormState.fixtureNo = null;
+  tierFormState.enabledTiers = new Set();
+  document.querySelectorAll('#tier-type-chips .chip').forEach(c =>
+    c.classList.toggle('active', c.textContent === `${type} (${TYPES[type].name})`)
+  );
+
+  // 매대 번호 칩
+  const chips = document.getElementById('tier-fixture-chips');
+  chips.innerHTML = '';
+  const fxNos = [...new Set(fixtures.filter(f => f.type === type).map(f => f.no))].sort((a, b) => a - b);
+  fxNos.forEach(no => {
+    const btn = document.createElement('button');
+    btn.className = 'chip';
+    // 활성 단 수 표시
+    const locs = locations.filter(l => l.shelf_type === type && Number(l.fixture_no) === no);
+    const activeCnt = locs.filter(l => l.enabled === 1 || l.enabled === true).length;
+    const totalCnt = locs.length;
+    const isPartial = activeCnt < totalCnt;
+    btn.textContent = `${type}-${no}`;
+    if (isPartial) {
+      btn.innerHTML = `${type}-${no} <span style="font-size:9px;color:var(--orange);">${activeCnt}/${totalCnt}</span>`;
+    }
+    btn.addEventListener('click', () => selectTierFixture(no));
+    chips.appendChild(btn);
+  });
+
+  document.getElementById('tier-config-panel').classList.add('hidden');
+}
+
+function selectTierFixture(no) {
+  tierFormState.fixtureNo = no;
+  const type = tierFormState.type;
+  document.querySelectorAll('#tier-fixture-chips .chip').forEach(c =>
+    c.classList.toggle('active', c.textContent.startsWith(`${type}-${no}`))
+  );
+
+  // 현재 단 상태 로드
+  const locs = locations.filter(l => l.shelf_type === type && Number(l.fixture_no) === no);
+  const activeTiers = new Set(locs.filter(l => l.enabled === 1 || l.enabled === true).map(l => Number(l.tier)));
+  tierFormState.enabledTiers = new Set(activeTiers);
+
+  const cfg = TYPES[type];
+  const panel = document.getElementById('tier-config-panel');
+  const info = document.getElementById('tier-current-info');
+  info.textContent = `${type}-${no} — 활성 ${activeTiers.size}단 / 전체 ${cfg.tiers.length}단`;
+
+  // 단 토글 칩 생성
+  const chips = document.getElementById('tier-toggle-chips');
+  chips.innerHTML = '';
+  cfg.tiers.forEach((h, i) => {
+    const tier = i + 1;
+    const btn = document.createElement('button');
+    btn.className = 'chip' + (activeTiers.has(tier) ? ' active' : '');
+    btn.textContent = `${tier}단` + (h >= 999 ? ' (무제한)' : ` (${h}cm)`);
+    btn.addEventListener('click', () => {
+      if (tierFormState.enabledTiers.has(tier)) {
+        tierFormState.enabledTiers.delete(tier);
+        btn.classList.remove('active');
+      } else {
+        tierFormState.enabledTiers.add(tier);
+        btn.classList.add('active');
+      }
+      info.textContent = `${type}-${no} — 활성 ${tierFormState.enabledTiers.size}단 / 전체 ${cfg.tiers.length}단`;
+    });
+    chips.appendChild(btn);
+  });
+
+  panel.classList.remove('hidden');
+}
+
+async function saveTierConfig() {
+  const { type, fixtureNo, enabledTiers } = tierFormState;
+  if (!type || !fixtureNo) return;
+
+  const btn = document.getElementById('btn-save-tiers');
+  btn.disabled = true;
+  btn.textContent = '저장 중...';
+
+  try {
+    // 해당 매대의 모든 단 비활성화
+    await sbFetch(
+      `shelf_locations?shelf_type=eq.${type}&fixture_no=eq.${fixtureNo}`,
+      'PATCH',
+      { enabled: 0 }
+    );
+
+    // 활성 단만 활성화
+    for (const tier of enabledTiers) {
+      await sbFetch(
+        `shelf_locations?shelf_type=eq.${type}&fixture_no=eq.${fixtureNo}&tier=eq.${tier}`,
+        'PATCH',
+        { enabled: 1 }
+      );
+    }
+
+    // 로컬 데이터 갱신
+    locations.forEach(l => {
+      if (l.shelf_type === type && Number(l.fixture_no) === Number(fixtureNo)) {
+        l.enabled = enabledTiers.has(Number(l.tier)) ? 1 : 0;
+      }
+    });
+
+    showToast(`${type}-${fixtureNo}: ${enabledTiers.size}단 활성화 완료`);
+    renderTierStats();
+    renderTierOverview();
+    // 매대 번호 칩 갱신 (활성 수 업데이트)
+    selectTierType(type);
+    selectTierFixture(fixtureNo);
+  } catch (err) {
+    console.error('단 설정 저장 실패:', err);
+    showToast('저장 실패: ' + err.message, true);
+  }
+
+  btn.disabled = false;
+  btn.textContent = '단 설정 저장';
+}
+
+function renderTierStats() {
+  const container = document.getElementById('tier-stats');
+  const badge = document.getElementById('tiers-badge');
+  if (!container) return;
+
+  let html = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">';
+  let totalAll = 0, activeAll = 0;
+
+  Object.entries(TYPES).forEach(([stype, cfg]) => {
+    const locs = locations.filter(l => l.shelf_type === stype);
+    const total = locs.length;
+    const active = locs.filter(l => l.enabled === 1 || l.enabled === true).length;
+    const pct = total > 0 ? Math.round(active / total * 100) : 0;
+    totalAll += total;
+    activeAll += active;
+
+    const color = pct === 100 ? 'var(--green)' : pct >= 80 ? 'var(--accent)' : 'var(--orange)';
+    html += `<div style="background:var(--surface);border-radius:8px;padding:10px;text-align:center;">
+      <div style="font-size:11px;color:var(--text3);">${stype} (${cfg.name})</div>
+      <div style="font-size:20px;font-weight:700;color:${color};margin:4px 0;">${active}<span style="font-size:12px;color:var(--text3);">/${total}</span></div>
+      <div style="font-size:11px;color:var(--text2);">활용률 ${pct}%</div>
+    </div>`;
+  });
+  html += '</div>';
+
+  // 전체 합계
+  const pctAll = totalAll > 0 ? Math.round(activeAll / totalAll * 100) : 0;
+  html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+    <span style="font-size:12px;color:var(--text2);">전체:</span>
+    <span style="font-size:16px;font-weight:700;color:var(--accent);margin-left:6px;">${activeAll}</span>
+    <span style="font-size:12px;color:var(--text3);">/ ${totalAll}단 (${pctAll}%)</span>
+  </div>`;
+
+  container.innerHTML = html;
+  badge.textContent = `${activeAll}단 활성`;
+}
+
+function renderTierOverview(filterType) {
+  const container = document.getElementById('tier-overview-list');
+  if (!container) return;
+
+  const fxGroups = {};
+  locations.forEach(l => {
+    if (filterType && l.shelf_type !== filterType) return;
+    const key = `${l.shelf_type}-${l.fixture_no}`;
+    if (!fxGroups[key]) fxGroups[key] = { type: l.shelf_type, no: l.fixture_no, tiers: [] };
+    fxGroups[key].tiers.push({ tier: Number(l.tier), enabled: l.enabled === 1 || l.enabled === true });
+  });
+
+  const sorted = Object.values(fxGroups).sort((a, b) => {
+    if (a.type !== b.type) return a.type.localeCompare(b.type);
+    return a.no - b.no;
+  });
+
+  container.innerHTML = sorted.map(g => {
+    const active = g.tiers.filter(t => t.enabled).length;
+    const total = g.tiers.length;
+    const isAll = active === total;
+    const statusColor = isAll ? 'var(--green)' : 'var(--orange)';
+    const tierDots = g.tiers
+      .sort((a, b) => a.tier - b.tier)
+      .map(t => `<span style="display:inline-block;width:18px;height:18px;line-height:18px;text-align:center;border-radius:4px;font-size:10px;font-weight:600;${t.enabled ? 'background:var(--accent);color:#fff;' : 'background:var(--surface);color:var(--text3);'}">${t.tier}</span>`)
+      .join('');
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:13px;font-weight:600;min-width:44px;color:${statusColor};">${g.type}-${g.no}</span>
+      <div style="display:flex;gap:3px;">${tierDots}</div>
+      <span style="font-size:11px;color:var(--text3);margin-left:auto;">${active}/${total}단</span>
+    </div>`;
+  }).join('');
+}
+
+async function saveDimension() {
+  if (!dimsSelectedProduct) return;
+  const height = parseFloat(document.getElementById('dims-height').value);
+  if (!height || height <= 0) {
+    showToast('높이는 필수 입력입니다.', true);
+    return;
+  }
+
+  const width = parseFloat(document.getElementById('dims-width').value) || null;
+  const depth = parseFloat(document.getElementById('dims-depth').value) || null;
+
+  // size_class 계산
+  let size_class = 'short';
+  if (height > 23) size_class = 'tall';
+  else if (height > 15) size_class = 'medium';
+
+  const dual_row = (depth !== null && depth <= 14.0) ? 1 : 0;
+
+  const btn = document.getElementById('dims-save-btn');
+  btn.disabled = true;
+  btn.textContent = '저장 중...';
+
+  try {
+    // upsert
+    await sbFetch(
+      'product_dimensions?on_conflict=product_name',
+      'POST',
+      {
+        product_name: dimsSelectedProduct,
+        width, height, depth, size_class, dual_row,
+      }
+    );
+
+    // 로컬 배열 갱신
+    const idx = dimensions.findIndex(d => d.product_name === dimsSelectedProduct);
+    const newDim = { product_name: dimsSelectedProduct, width, height, depth, size_class, dual_row };
+    if (idx >= 0) dimensions[idx] = newDim;
+    else dimensions.push(newDim);
+
+    showToast(`치수 저장 완료: ${dimsSelectedProduct}`);
+    clearDimsSelection();
+    renderDimsMissing();
+  } catch (err) {
+    console.error('치수 저장 실패:', err);
+    showToast('저장 실패: ' + err.message, true);
+  }
+
+  btn.disabled = false;
+  btn.textContent = '치수 저장';
 }

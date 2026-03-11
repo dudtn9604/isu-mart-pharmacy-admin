@@ -21,6 +21,14 @@
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
       <span>배치등록</span>
     </button>
+    <button class="tab-btn" data-tab="dims">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 3H3v18h18V3z"/><path d="M9 3v18"/><path d="M3 9h18"/></svg>
+      <span>치수입력</span>
+    </button>
+    <button class="tab-btn" data-tab="tiers">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v4H3z"/><path d="M3 10h18v4H3z"/><path d="M3 17h18v4H3z"/></svg>
+      <span>단 설정</span>
+    </button>
   </nav>
 
   <!-- ═══ 탭1: 매장 배치도 ═══ -->
@@ -125,6 +133,134 @@
     </div>
   </section>
 
+
+  <!-- ═══ 탭3: 치수 입력 ═══ -->
+  <section id="tab-dims" class="page">
+    <header class="page-header">
+      <h1>치수 입력</h1>
+      <span class="badge" id="dims-badge">0개 미입력</span>
+    </header>
+    <div class="form-card">
+      <!-- 미기입 제품 목록 -->
+      <div class="form-step">
+        <label class="form-label">치수 미기입 제품</label>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:8px;">현재 배치된 제품 중 치수가 없는 항목입니다.</p>
+        <div id="dims-missing-list"></div>
+        <button id="dims-more-btn" class="btn-more hidden" onclick="showMoreMissing()">더보기</button>
+      </div>
+
+      <div style="height:1px;background:var(--border);margin:16px 0;"></div>
+
+      <!-- 직접 입력 -->
+      <div class="form-step">
+        <label class="form-label">상품 검색 (직접 입력)</label>
+        <div class="search-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="dims-search" placeholder="상품명 입력..." autocomplete="off">
+        </div>
+        <div id="dims-search-results" class="product-list"></div>
+      </div>
+
+      <div id="dims-form" class="hidden">
+        <div id="dims-selected" class="selected-product" style="margin-bottom:12px;"></div>
+        <div id="dims-current" style="font-size:12px;color:var(--text2);margin-bottom:10px;"></div>
+        <div class="form-step">
+          <label class="form-label">가로 (cm)</label>
+          <input type="number" id="dims-width" class="form-input" min="0" step="0.1" inputmode="decimal" placeholder="예: 8.5">
+        </div>
+        <div class="form-step">
+          <label class="form-label">높이 (cm) <span style="color:var(--red);">*필수</span></label>
+          <input type="number" id="dims-height" class="form-input" min="0" step="0.1" inputmode="decimal" placeholder="예: 15.0">
+        </div>
+        <div class="form-step">
+          <label class="form-label">깊이 (cm)</label>
+          <input type="number" id="dims-depth" class="form-input" min="0" step="0.1" inputmode="decimal" placeholder="예: 6.0">
+        </div>
+        <button id="dims-save-btn" class="btn-primary" onclick="saveDimension()">치수 저장</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 탭4: 매대 단 설정 ═══ -->
+  <section id="tab-tiers" class="page">
+    <header class="page-header">
+      <h1>매대 단 설정</h1>
+      <span class="badge" id="tiers-badge">0단 활성</span>
+    </header>
+    <div class="form-card">
+      <!-- 매장 전체 통계 -->
+      <div class="form-step">
+        <label class="form-label">📊 매장 전체 단 활용 현황</label>
+        <div id="tier-stats"></div>
+      </div>
+
+      <div style="height:1px;background:var(--border);margin:16px 0;"></div>
+
+      <!-- 매대 선택 및 단 설정 -->
+      <div class="form-step">
+        <label class="form-label">1. 매대 타입</label>
+        <div class="chip-group" id="tier-type-chips"></div>
+      </div>
+      <div class="form-step">
+        <label class="form-label">2. 매대 번호</label>
+        <div class="chip-group scrollable" id="tier-fixture-chips"></div>
+      </div>
+      <div id="tier-config-panel" class="hidden">
+        <div class="form-step">
+          <label class="form-label">3. 사용할 단 선택</label>
+          <div id="tier-current-info" style="font-size:12px;color:var(--text2);margin-bottom:8px;"></div>
+          <div class="chip-group" id="tier-toggle-chips"></div>
+        </div>
+        <button id="btn-save-tiers" class="btn-primary" onclick="saveTierConfig()">단 설정 저장</button>
+      </div>
+
+      <div style="height:1px;background:var(--border);margin:16px 0;"></div>
+
+      <!-- 매대별 활성 단 현황 -->
+      <div class="form-step">
+        <label class="form-label">🗂️ 매대별 활성 단 현황</label>
+        <div class="chip-group" id="tier-overview-filter" style="margin-bottom:8px;"></div>
+        <div id="tier-overview-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 배치 수정 모달 -->
+  <div id="edit-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeEditModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>배치 수정</h3>
+        <button class="icon-btn" onclick="closeEditModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:12px;">
+          <div id="edit-product-name" style="font-size:15px;font-weight:700;color:var(--accent);"></div>
+          <div id="edit-loc-label" style="font-size:12px;color:var(--text2);margin-top:2px;"></div>
+        </div>
+        <div class="form-step">
+          <label class="form-label">위치 범위</label>
+          <div class="range-row">
+            <div class="range-input">
+              <span>시작</span>
+              <input type="number" id="edit-pos-start" min="1" value="1" inputmode="numeric">
+            </div>
+            <span class="range-sep">~</span>
+            <div class="range-input">
+              <span>끝</span>
+              <input type="number" id="edit-pos-end" min="1" value="1" inputmode="numeric">
+            </div>
+          </div>
+        </div>
+        <div class="form-step">
+          <label class="form-label">메모</label>
+          <input type="text" id="edit-notes" class="form-input" placeholder="참고사항...">
+        </div>
+        <button id="edit-save-btn" class="btn-primary" onclick="saveEditPlacement()">저장</button>
+      </div>
+    </div>
+  </div>
 
   <!-- 토스트 메시지 -->
   <div id="toast" class="toast hidden"></div>
