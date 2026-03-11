@@ -1344,34 +1344,55 @@ elif menu == "✏️ 배치 관리":
         for stype, scfg in SHELF_CONFIGS.items():
             type_locs = all_locs[all_locs["shelf_type"] == stype]
             total = len(type_locs)
-            active = len(type_locs[type_locs["enabled"] == 1])
+            active_locs = type_locs[type_locs["enabled"] == 1]
+            active = len(active_locs)
             inactive = total - active
             fixture_count = type_locs["fixture_no"].nunique()
             tiers_per = len(scfg["tiers"])
+            width_cm = scfg["width"]
+
+            # 면적 계산: width(cm) × tier_height(cm), 무제한(999) 단 제외
+            valid_all = type_locs[type_locs["tier_height"] < 999] if "tier_height" in type_locs.columns else type_locs
+            valid_active = active_locs[active_locs["tier_height"] < 999] if "tier_height" in active_locs.columns else active_locs
+            area_total = valid_all["tier_height"].sum() * width_cm if not valid_all.empty and "tier_height" in valid_all.columns else 0
+            area_active = valid_active["tier_height"].sum() * width_cm if not valid_active.empty and "tier_height" in valid_active.columns else 0
+
             stat_rows.append({
                 "타입": f"{stype} ({scfg['name']})",
                 "매대 수": fixture_count,
                 "단/매대": tiers_per,
+                "폭(cm)": width_cm,
                 "전체 단": total,
                 "활성 단": active,
                 "비활성 단": inactive,
                 "활용률": f"{active / total * 100:.0f}%" if total > 0 else "-",
+                "전체 면적(m²)": round(area_total / 10000, 2),
+                "활용 면적(m²)": round(area_active / 10000, 2),
+                "_area_total": area_total,
+                "_area_active": area_active,
             })
         total_all = sum(r["전체 단"] for r in stat_rows)
         active_all = sum(r["활성 단"] for r in stat_rows)
         inactive_all = sum(r["비활성 단"] for r in stat_rows)
+        area_total_all = sum(r["_area_total"] for r in stat_rows)
+        area_active_all = sum(r["_area_active"] for r in stat_rows)
         stat_rows.append({
             "타입": "합계",
             "매대 수": sum(r["매대 수"] for r in stat_rows),
             "단/매대": "-",
+            "폭(cm)": "-",
             "전체 단": total_all,
             "활성 단": active_all,
             "비활성 단": inactive_all,
             "활용률": f"{active_all / total_all * 100:.0f}%" if total_all > 0 else "-",
+            "전체 면적(m²)": round(area_total_all / 10000, 2),
+            "활용 면적(m²)": round(area_active_all / 10000, 2),
+            "_area_total": area_total_all,
+            "_area_active": area_active_all,
         })
 
         import pandas as _pd_stat
-        stat_df = _pd_stat.DataFrame(stat_rows)
+        stat_df = _pd_stat.DataFrame(stat_rows).drop(columns=["_area_total", "_area_active"])
         st.dataframe(stat_df, use_container_width=True, hide_index=True)
 
         # ── 매대별 활성 단 한눈에 보기 ──
