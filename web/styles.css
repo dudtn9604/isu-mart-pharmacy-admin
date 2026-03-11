@@ -38,19 +38,21 @@ body {
   z-index: 500;
 }
 .tab-btn {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   background: none; border: none;
   color: var(--text3);
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 2px;
-  font-size: 10px;
+  gap: 1px;
+  font-size: 9px;
   cursor: pointer;
   transition: color 0.15s;
-  padding-top: 6px;
+  padding: 6px 2px 2px;
+  overflow: hidden;
 }
 .tab-btn.active { color: var(--accent); }
-.tab-btn svg { flex-shrink: 0; }
+.tab-btn svg { flex-shrink: 0; width: 20px; height: 20px; }
 
 /* ── 페이지 ── */
 .page {
@@ -140,6 +142,7 @@ body {
 /* ── 맵 ── */
 #map-container {
   flex: 1;
+  min-height: 65vh;
   overflow: hidden;
   touch-action: none;
   position: relative;
@@ -394,7 +397,36 @@ body {
 .recent-card .rc-left { flex: 1; min-width: 0; }
 .recent-card .rc-loc { font-size: 13px; font-weight: 600; }
 .recent-card .rc-prod { font-size: 12px; color: var(--text2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.recent-card .rc-right { font-size: 10px; color: var(--text3); flex-shrink: 0; text-align: right; }
+.recent-card .rc-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.rc-edit-btn, .rc-del-btn {
+  border: none; border-radius: 6px; padding: 5px 10px;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+}
+.rc-edit-btn { background: rgba(56,189,248,0.15); color: var(--accent); }
+.rc-del-btn { background: rgba(248,113,113,0.15); color: var(--red); }
+.rc-edit-btn:active, .rc-del-btn:active { opacity: 0.7; }
+
+/* ── 모달 ── */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 600;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.hidden { display: none !important; }
+.modal-card {
+  background: var(--bg2);
+  border-radius: 16px;
+  width: 100%; max-width: 400px;
+  overflow: hidden;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 16px 12px;
+}
+.modal-header h3 { font-size: 17px; font-weight: 700; }
+.modal-body { padding: 0 16px 20px; }
 
 /* ── 현재 배치 목록 ── */
 .placement-list {
@@ -449,6 +481,20 @@ body {
 }
 .toast.hidden { opacity: 0; pointer-events: none; }
 .toast.error { background: var(--red); color: #fff; }
+
+/* ── 치수 미기입 카드 ── */
+.dims-missing-card {
+  background: var(--card);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  border-left: 3px solid var(--orange);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.dims-missing-card:active { background: var(--surface); }
+.dims-missing-card .dmc-name { font-size: 13px; font-weight: 600; }
+.dims-missing-card .dmc-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
 
 /* 유틸 */
 .hidden { display: none !important; }
