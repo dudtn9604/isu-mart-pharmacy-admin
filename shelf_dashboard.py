@@ -127,7 +127,6 @@ _ensure_layout_api()
 # ──────────────────────────────────────
 # Supabase 상품 목록 캐시
 # ──────────────────────────────────────
-@st.cache_data(ttl=3600)
 def load_product_list():
     try:
         from supabase_client import is_supabase_configured, fetch_products

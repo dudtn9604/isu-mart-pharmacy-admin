@@ -87,13 +87,27 @@ function initTabs() {
   });
 }
 
+// 페이지네이션: Supabase REST API 기본 1000건 제한 대응
+async function sbFetchAll(query) {
+  let all = [], offset = 0;
+  const pageSize = 1000;
+  while (true) {
+    const sep = query.includes('?') ? '&' : '?';
+    const page = await sbFetch(query + sep + 'offset=' + offset + '&limit=' + pageSize);
+    all = all.concat(page);
+    if (page.length < pageSize) break;
+    offset += pageSize;
+  }
+  return all;
+}
+
 async function loadData() {
   // Supabase에서 실시간 데이터 로드, 실패 시 정적 JSON fallback
   let loc, plcRaw;
   try {
     const [sbLoc, sbPlc] = await Promise.all([
-      sbFetch('shelf_locations?select=*&order=shelf_type,fixture_no,tier'),
-      sbFetch('shelf_placements?select=*,shelf_locations!inner(shelf_type,fixture_no,tier,display_label,tier_height)&end_date=is.null&order=created_at.desc'),
+      sbFetchAll('shelf_locations?select=*&order=shelf_type,fixture_no,tier'),
+      sbFetchAll('shelf_placements?select=*,shelf_locations!inner(shelf_type,fixture_no,tier,display_label,tier_height)&end_date=is.null&order=created_at.desc'),
     ]);
     loc = sbLoc;
     // flatten: shelf_locations 조인 결과를 플랫하게
@@ -113,10 +127,19 @@ async function loadData() {
     plcRaw = await fetch('data/placements.json').then(r => r.json());
   }
 
-  const [fx, lay, prod] = await Promise.all([
+  // 상품 목록도 Supabase에서 로드 (페이지네이션)
+  let prod;
+  try {
+    prod = await sbFetchAll('products?select=id,name,erp_category,erp_subcategory,barcode,selling_price,is_active&order=name');
+    console.log(`Supabase 상품 로드: ${prod.length}건`);
+  } catch (e2) {
+    console.warn('Supabase 상품 로드 실패, 정적 JSON 사용:', e2);
+    prod = await fetch('data/products.json').then(r => r.json()).catch(() => []);
+  }
+
+  const [fx, lay] = await Promise.all([
     fetch('data/fixtures.json').then(r => r.json()),
     fetch('data/layout.json').then(r => r.json()).catch(() => null),
-    fetch('data/products.json').then(r => r.json()).catch(() => []),
   ]);
 
   locations = loc;
@@ -1267,36 +1290,43 @@ async function saveTierConfig() {
   btn.disabled = true;
   btn.textContent = '저장 중...';
 
+  const fxNo = Number(fixtureNo);
+
   try {
     // 해당 매대의 모든 단 비활성화
-    await sbFetch(
-      `shelf_locations?shelf_type=eq.${type}&fixture_no=eq.${fixtureNo}`,
+    const r1 = await sbFetch(
+      `shelf_locations?shelf_type=eq.${type}&fixture_no=eq.${fxNo}`,
       'PATCH',
       { enabled: 0 }
     );
+    console.log(`단 설정: ${type}-${fxNo} 전체 비활성화 →`, r1.length, '건');
 
     // 활성 단만 활성화
     for (const tier of enabledTiers) {
-      await sbFetch(
-        `shelf_locations?shelf_type=eq.${type}&fixture_no=eq.${fixtureNo}&tier=eq.${tier}`,
+      const r2 = await sbFetch(
+        `shelf_locations?shelf_type=eq.${type}&fixture_no=eq.${fxNo}&tier=eq.${tier}`,
         'PATCH',
         { enabled: 1 }
       );
+      console.log(`단 설정: ${type}-${fxNo} ${tier}단 활성화 →`, r2.length, '건');
     }
 
-    // 로컬 데이터 갱신
-    locations.forEach(l => {
-      if (l.shelf_type === type && Number(l.fixture_no) === Number(fixtureNo)) {
-        l.enabled = enabledTiers.has(Number(l.tier)) ? 1 : 0;
-      }
+    // DB에서 최신 데이터 다시 로드
+    const updated = await sbFetch(
+      `shelf_locations?shelf_type=eq.${type}&fixture_no=eq.${fxNo}&select=*`
+    );
+    // 로컬 배열 갱신
+    updated.forEach(u => {
+      const idx = locations.findIndex(l => l.id === u.id);
+      if (idx >= 0) locations[idx] = u;
     });
 
-    showToast(`${type}-${fixtureNo}: ${enabledTiers.size}단 활성화 완료`);
+    showToast(`${type}-${fxNo}: ${enabledTiers.size}단 활성화 완료`);
     renderTierStats();
     renderTierOverview();
     // 매대 번호 칩 갱신 (활성 수 업데이트)
     selectTierType(type);
-    selectTierFixture(fixtureNo);
+    selectTierFixture(fxNo);
   } catch (err) {
     console.error('단 설정 저장 실패:', err);
     showToast('저장 실패: ' + err.message, true);
@@ -1311,16 +1341,30 @@ function renderTierStats() {
   const badge = document.getElementById('tiers-badge');
   if (!container) return;
 
+  // 단 활용 현황
   let html = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">';
   let totalAll = 0, activeAll = 0;
+  let lenAllTotal = 0, lenAllActive = 0;
+
+  const typeStats = {};
 
   Object.entries(TYPES).forEach(([stype, cfg]) => {
+    const widthCm = cfg.w / 10;
     const locs = locations.filter(l => l.shelf_type === stype);
     const total = locs.length;
-    const active = locs.filter(l => l.enabled === 1 || l.enabled === true).length;
+    const activeLocs = locs.filter(l => l.enabled === 1 || l.enabled === true);
+    const active = activeLocs.length;
     const pct = total > 0 ? Math.round(active / total * 100) : 0;
     totalAll += total;
     activeAll += active;
+
+    // 진열 길이: 활성 단 수 × 매대 폭(cm)
+    const lenTotal = total * widthCm;
+    const lenActive = active * widthCm;
+    lenAllTotal += lenTotal;
+    lenAllActive += lenActive;
+
+    typeStats[stype] = { widthCm, total, active, pct, lenTotal, lenActive };
 
     const color = pct === 100 ? 'var(--green)' : pct >= 80 ? 'var(--accent)' : 'var(--orange)';
     html += `<div style="background:var(--surface);border-radius:8px;padding:10px;text-align:center;">
@@ -1331,12 +1375,39 @@ function renderTierStats() {
   });
   html += '</div>';
 
-  // 전체 합계
+  // 전체 단 합계
   const pctAll = totalAll > 0 ? Math.round(activeAll / totalAll * 100) : 0;
-  html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+  html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;margin-bottom:16px;">
     <span style="font-size:12px;color:var(--text2);">전체:</span>
     <span style="font-size:16px;font-weight:700;color:var(--accent);margin-left:6px;">${activeAll}</span>
     <span style="font-size:12px;color:var(--text3);">/ ${totalAll}단 (${pctAll}%)</span>
+  </div>`;
+
+  // 진열 길이 통계 (활성 단 수 × 매대 폭)
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">';
+  Object.entries(TYPES).forEach(([stype, cfg]) => {
+    const s = typeStats[stype];
+    const lenActiveM = (s.lenActive / 100).toFixed(1);
+    const lenTotalM = (s.lenTotal / 100).toFixed(1);
+    const lenPct = s.lenTotal > 0 ? Math.round(s.lenActive / s.lenTotal * 100) : 0;
+    const color = lenPct === 100 ? 'var(--green)' : lenPct >= 80 ? 'var(--accent)' : 'var(--orange)';
+    html += `<div style="background:var(--surface);border-radius:8px;padding:10px;text-align:center;">
+      <div style="font-size:11px;color:var(--text3);">${stype} 진열길이</div>
+      <div style="font-size:16px;font-weight:700;color:${color};margin:4px 0;">${lenActiveM}<span style="font-size:11px;color:var(--text3);">m</span></div>
+      <div style="font-size:10px;color:var(--text3);">전체 ${lenTotalM}m (${lenPct}%)</div>
+      <div style="font-size:10px;color:var(--text3);">폭 ${s.widthCm}cm × ${s.active}단</div>
+    </div>`;
+  });
+  html += '</div>';
+
+  // 진열 길이 전체 합계
+  const lenAllActiveM = (lenAllActive / 100).toFixed(1);
+  const lenAllTotalM = (lenAllTotal / 100).toFixed(1);
+  const lenPctAll = lenAllTotal > 0 ? Math.round(lenAllActive / lenAllTotal * 100) : 0;
+  html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+    <span style="font-size:12px;color:var(--text2);">총 진열길이:</span>
+    <span style="font-size:16px;font-weight:700;color:var(--accent);margin-left:6px;">${lenAllActiveM}m</span>
+    <span style="font-size:12px;color:var(--text3);">/ ${lenAllTotalM}m (${lenPctAll}%)</span>
   </div>`;
 
   container.innerHTML = html;
