@@ -114,7 +114,11 @@ def fetch_orders(
     rows = _fetch_all_rows(query)
     if not rows:
         return pd.DataFrame()
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    # 동일 주문이 중복 저장된 경우 제거 (동기화 중복 방지)
+    if "toss_order_id" in df.columns:
+        df = df.drop_duplicates(subset=["toss_order_id"], keep="last")
+    return df
 
 
 def fetch_sale_cost_records(
