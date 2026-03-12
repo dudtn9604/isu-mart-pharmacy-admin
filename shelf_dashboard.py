@@ -4136,6 +4136,13 @@ elif menu == "🏪 포레온 시뮬레이션":
         const ft = FACILITY_TYPES[fac.name] || FACILITY_TYPES['기타'];
         const fw = fac.w * scale, fh = fac.h * scale;
         const [fx, fy] = toSVG(fac.x, fac.y);
+        // 투명 히트 영역 (패딩 8px) — 더블클릭 감지 영역 확대
+        const hitPad = 8;
+        const hitRect = document.createElementNS(svgNS, 'rect');
+        hitRect.setAttribute('x', fx - hitPad); hitRect.setAttribute('y', fy - hitPad);
+        hitRect.setAttribute('width', fw + hitPad * 2); hitRect.setAttribute('height', fh + hitPad * 2);
+        hitRect.setAttribute('fill', 'transparent'); hitRect.setAttribute('stroke', 'none');
+        g.appendChild(hitRect);
         addRect(g, fx, fy, fw, fh, isSel ? ft.border : '#aaa', isSel ? 3 : 1, ft.c);
         const facNameSize = Math.max(8, 10 * scale / 0.035);
         const pyeong = (fac.w * fac.h) / 1000000 / 3.3058;
