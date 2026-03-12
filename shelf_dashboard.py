@@ -3022,174 +3022,30 @@ elif menu == "🛒 교차판매 분석":
             if sub_items.empty:
                 st.info("세부 카테고리 데이터가 없습니다.")
             else:
-                sc_metric_choice = st.radio(
-                    "지표 선택", ["동시구매 건수", "Confidence", "Lift"],
-                    horizontal=True, key="sc_metric",
+                st.subheader("세부 카테고리 동시구매 Top 20")
+                st.info(
+                    "세부 카테고리 기준으로 동시구매 빈도가 높은 쌍 Top 20입니다.\n\n"
+                    "**Lift > 1**: 우연보다 자주 함께 구매 | "
+                    "**Confidence**: A를 산 고객 중 B도 산 비율"
                 )
-                sc_metric_key = "lift" if sc_metric_choice == "Lift" else ("count" if sc_metric_choice == "동시구매 건수" else "confidence")
-                sc_heatmap = get_category_heatmap_data(sub_items, metric=sc_metric_key, level="subcategory")
 
-                if sc_heatmap.empty:
+                sc_cooc = compute_cooccurrence(sub_items, level="subcategory")
+                if sc_cooc.empty:
                     st.info("세부 카테고리 교차분석 데이터가 없습니다.")
                 else:
-                    if sc_metric_key == "count":
-                        st.subheader("세부 카테고리 × 세부 카테고리 동시구매 건수")
-                        st.info(
-                            "**동시구매 건수란?** "
-                            "두 세부 카테고리 상품이 같은 주문에서 함께 구매된 횟수입니다.\n\n"
-                            "**읽는 법**: 숫자가 클수록 (진한 색) 자주 함께 구매되는 세부 카테고리 쌍입니다. "
-                            "히트맵 칸을 클릭하면 동시구매 3회 이상인 상품 쌍을 확인할 수 있습니다."
-                        )
-                    elif sc_metric_key == "confidence":
-                        st.subheader("세부 카테고리 × 세부 카테고리 Confidence Heatmap")
-                        st.info(
-                            "**Confidence란?** "
-                            "\"A를 산 고객 중 B도 같이 산 비율\"입니다.\n\n"
-                            "**읽는 법**: 행(↓)이 기준 세부 카테고리, 열(→)이 함께 구매한 세부 카테고리입니다. "
-                            "값이 높을수록 함께 구매하는 비율이 높습니다."
-                        )
-                    else:
-                        st.subheader("세부 카테고리 × 세부 카테고리 Lift Heatmap")
-                        st.info(
-                            "**Lift란?** "
-                            "\"두 세부 카테고리가 우연히 같이 팔릴 확률 대비, 실제로 얼마나 더 같이 팔리는가\"입니다.\n\n"
-                            "**읽는 법**: 1보다 크면(초록) 서로 끌어주는 관계, 1보다 작으면(빨강) 오히려 따로 사는 경향입니다."
-                        )
-                    st.caption("👆 히트맵 칸을 **클릭**하면 교차구매 상품을 확인할 수 있습니다.")
-
-                    sc_cats_list = sc_heatmap.columns.tolist()
-                    sc_n_cats = len(sc_cats_list)
-
-                    if sc_metric_key == "count":
-                        sc_colorscale = "Blues"
-                        sc_zmid = None
-                        sc_caption = "숫자 = 동시구매 건수 | 건수가 클수록 자주 함께 구매되는 세부 카테고리 쌍"
-                    elif sc_metric_key == "lift":
-                        sc_colorscale = "RdYlGn"
-                        sc_zmid = 1.0
-                        sc_caption = "Lift > 1 (초록): 함께 구매 경향 | Lift < 1 (빨강): 따로 구매 경향"
-                    else:
-                        sc_colorscale = "YlOrRd"
-                        sc_zmid = None
-                        sc_caption = "값이 높을수록 (진한 빨강) 행 카테고리 구매 시 열 카테고리를 함께 구매하는 비율이 높음"
-
-                    if sc_metric_key == "count":
-                        sc_text_vals = sc_heatmap.values.astype(int)
-                        sc_text_template = "%{text}건"
-                    elif sc_metric_key == "confidence":
-                        sc_text_vals = (sc_heatmap.values * 100).round(1)
-                        sc_text_template = "%{text}%"
-                    else:
-                        sc_text_vals = np.round(sc_heatmap.values, 2)
-                        sc_text_template = "%{text}"
-
-                    sc_fig = go.Figure()
-                    sc_fig.add_trace(go.Heatmap(
-                        z=sc_heatmap.values,
-                        x=sc_cats_list,
-                        y=sc_heatmap.index.tolist(),
-                        colorscale=sc_colorscale,
-                        zmid=sc_zmid,
-                        text=sc_text_vals,
-                        texttemplate=sc_text_template,
-                        hoverinfo="skip",
-                        showscale=True,
-                    ))
-
-                    sc_sx, sc_sy, sc_sc = [], [], []
-                    for i, row_cat in enumerate(sc_heatmap.index.tolist()):
-                        for j, col_cat in enumerate(sc_cats_list):
-                            sc_sx.append(col_cat)
-                            sc_sy.append(row_cat)
-                            sc_sc.append([row_cat, col_cat])
-                    sc_fig.add_trace(go.Scatter(
-                        x=sc_sx, y=sc_sy,
-                        mode="markers",
-                        marker=dict(size=max(18, min(50, 500 // sc_n_cats)),
-                                    symbol="square", opacity=0),
-                        hovertemplate="행: %{y}<br>열: %{x}<extra></extra>",
-                        customdata=sc_sc,
-                        showlegend=False,
-                    ))
-
-                    sc_fig.update_layout(
-                        height=max(500, sc_n_cats * 35),
-                        xaxis_tickangle=-45,
-                        margin=dict(l=150, b=150),
-                    )
-
-                    sc_event = st.plotly_chart(
-                        sc_fig, use_container_width=True,
-                        on_select="rerun",
-                        selection_mode=("points",),
-                        key="subcat_heatmap",
-                    )
-                    st.caption(sc_caption)
-
-                    sc_sel_a = None
-                    sc_sel_b = None
-                    if sc_event and sc_event.selection and sc_event.selection.points:
-                        for pt in sc_event.selection.points:
-                            if pt.get("curve_number") == 1:
-                                sc_sel_a = pt.get("y")
-                                sc_sel_b = pt.get("x")
-                                break
-
-                    if sc_sel_a and sc_sel_b:
-                        sc_cell = sc_heatmap.loc[sc_sel_a, sc_sel_b] if sc_sel_a in sc_heatmap.index and sc_sel_b in sc_heatmap.columns else None
-                        if sc_metric_key == "count":
-                            sc_color = "🟢" if sc_cell and sc_cell >= 10 else ("🟡" if sc_cell and sc_cell >= 3 else "🔴")
-                        elif sc_metric_key == "lift":
-                            sc_color = "🟢" if sc_cell and sc_cell > 1.1 else ("🔴" if sc_cell and sc_cell < 0.9 else "⚪")
-                        else:
-                            sc_color = "🟢" if sc_cell and sc_cell > 0.3 else ("🔴" if sc_cell and sc_cell < 0.1 else "⚪")
-
-                        st.markdown("---")
-                        if sc_metric_key == "confidence":
-                            st.subheader(f"{sc_sel_a} → {sc_sel_b}")
-                        else:
-                            st.subheader(f"{sc_sel_a} × {sc_sel_b}")
-                        if sc_cell is not None:
-                            if sc_metric_key == "count":
-                                st.markdown(f"동시구매 건수 = **{int(sc_cell)}건** {sc_color}")
-                            elif sc_metric_key == "confidence":
-                                st.markdown(f"Confidence = **{sc_cell*100:.1f}%** {sc_color}")
-                            else:
-                                st.markdown(f"Lift = **{sc_cell:.2f}** {sc_color}")
-
-                        sc_pair = get_products_by_category_pair(sub_items, sc_sel_a, sc_sel_b, top_n=30, min_count=3, level="subcategory")
-
-                        if sc_pair.empty:
-                            sc_pair_any = get_products_by_category_pair(sub_items, sc_sel_a, sc_sel_b, top_n=1, min_count=1, level="subcategory")
-                            if not sc_pair_any.empty:
-                                st.info("동시 구매가 3회 미만입니다.")
-                            else:
-                                st.info("해당 세부 카테고리 쌍의 교차구매 데이터가 없습니다.")
-                        else:
-                            sc_dp = sc_pair.copy()
-                            if sc_metric_key == "confidence":
-                                sc_dp["confidence_a"] = (sc_dp["confidence_a"] * 100).round(1)
-                                sc_dp["confidence_b"] = (sc_dp["confidence_b"] * 100).round(1)
-                                sc_display = sc_dp.rename(columns={
-                                    "product_a": "상품 A",
-                                    "cat_a": "세부 카테고리 A",
-                                    "product_b": "상품 B",
-                                    "cat_b": "세부 카테고리 B",
-                                    "count": "동시구매 횟수",
-                                    "confidence_a": "Conf A→B(%)",
-                                    "confidence_b": "Conf B→A(%)",
-                                    "lift": "Lift",
-                                })
-                            else:
-                                sc_display = sc_dp.drop(columns=["confidence_a", "confidence_b"], errors="ignore").rename(columns={
-                                    "product_a": "상품 A",
-                                    "cat_a": "세부 카테고리 A",
-                                    "product_b": "상품 B",
-                                    "cat_b": "세부 카테고리 B",
-                                    "count": "동시구매 횟수",
-                                    "lift": "Lift",
-                                })
-                            st.dataframe(sc_display, use_container_width=True, hide_index=True)
+                    sc_top = sc_cooc.sort_values("count", ascending=False).head(20).copy()
+                    sc_top["confidence_a_to_b"] = (sc_top["confidence_a_to_b"] * 100).round(1)
+                    sc_top["confidence_b_to_a"] = (sc_top["confidence_b_to_a"] * 100).round(1)
+                    sc_top["lift"] = sc_top["lift"].round(2)
+                    sc_display = sc_top[["item_a", "item_b", "count", "confidence_a_to_b", "confidence_b_to_a", "lift"]].rename(columns={
+                        "item_a": "세부 카테고리 A",
+                        "item_b": "세부 카테고리 B",
+                        "count": "동시구매 건수",
+                        "confidence_a_to_b": "Conf A→B(%)",
+                        "confidence_b_to_a": "Conf B→A(%)",
+                        "lift": "Lift",
+                    })
+                    st.dataframe(sc_display, use_container_width=True, hide_index=True)
 
         # ━━━━ 탭 4: 배치 제안 ━━━━
         with tab_placement:
