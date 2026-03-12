@@ -3047,6 +3047,42 @@ elif menu == "🛒 교차판매 분석":
                     })
                     st.dataframe(sc_display, use_container_width=True, hide_index=True)
 
+                    # 세부 카테고리 쌍 선택 → 상품 쌍 상세
+                    st.markdown("---")
+                    pair_options = [
+                        f"{r['item_a']} × {r['item_b']}"
+                        for _, r in sc_top.iterrows()
+                    ]
+                    selected_pair = st.selectbox(
+                        "세부 카테고리 쌍 선택 (상품 쌍 상세 보기)",
+                        ["선택하세요"] + pair_options,
+                        key="sc_pair_select",
+                    )
+                    if selected_pair and selected_pair != "선택하세요":
+                        parts = selected_pair.split(" × ", 1)
+                        sc_a, sc_b = parts[0], parts[1]
+                        sc_pair = get_products_by_category_pair(
+                            sub_items, sc_a, sc_b, top_n=30, min_count=3, level="subcategory"
+                        )
+                        if sc_pair.empty:
+                            sc_pair_any = get_products_by_category_pair(
+                                sub_items, sc_a, sc_b, top_n=1, min_count=1, level="subcategory"
+                            )
+                            if not sc_pair_any.empty:
+                                st.info("동시 구매가 3회 미만인 상품 쌍만 있습니다.")
+                            else:
+                                st.info("해당 세부 카테고리 쌍의 교차구매 데이터가 없습니다.")
+                        else:
+                            sc_dp = sc_pair.drop(columns=["confidence_a", "confidence_b"], errors="ignore").rename(columns={
+                                "product_a": "상품 A",
+                                "cat_a": "세부 카테고리 A",
+                                "product_b": "상품 B",
+                                "cat_b": "세부 카테고리 B",
+                                "count": "동시구매 횟수",
+                                "lift": "Lift",
+                            })
+                            st.dataframe(sc_dp, use_container_width=True, hide_index=True)
+
         # ━━━━ 탭 4: 배치 제안 ━━━━
         with tab_placement:
             st.subheader("교차판매 기반 배치 제안")
