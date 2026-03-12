@@ -3212,8 +3212,11 @@ elif menu == "🏷️ 쇼카드 제작":
             return b""
 
     # ── 데이터 로드 ──
-    all_dims = get_all_dimensions()
-    dims_dict = {d["product_name"]: d for d in all_dims}
+    all_dims_df = get_all_dimensions()
+    if not all_dims_df.empty and "product_name" in all_dims_df.columns:
+        dims_dict = {row["product_name"]: row.to_dict() for _, row in all_dims_df.iterrows()}
+    else:
+        dims_dict = {}
     all_products_raw = get_current_placements()
     product_names = sorted(set(p["product_name"] for p in all_products_raw if p.get("product_name")))
 
