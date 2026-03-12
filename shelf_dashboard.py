@@ -124,7 +124,7 @@ st.sidebar.markdown("---")
 
 menu = st.sidebar.radio(
     "메뉴",
-    ["🗺️ 매장 배치도", "✏️ 배치 관리", "📊 위치별 성과 분석", "📅 배치 이력 분석", "📐 SKU 치수 관리", "🛒 교차판매 분석", "🏷️ 쇼카드 제작", "🏪 포레온 시뮬레이션"],
+    ["🗺️ 매장 배치도", "✏️ 배치 관리", "📊 위치별 성과 분석", "📐 SKU 치수 관리", "🛒 교차판매 분석", "🏷️ 쇼카드 제작", "🏪 포레온 시뮬레이션"],
     label_visibility="collapsed",
 )
 
@@ -2168,110 +2168,106 @@ elif menu == "📊 위치별 성과 분석":
                     use_container_width=True, hide_index=True,
                 )
 
-
-# ======================================================================
-# 탭 4: 배치 이력 분석
-# ======================================================================
-elif menu == "📅 배치 이력 분석":
-    st.title("📅 배치 이력 분석")
+    # ── 배치 이력 분석 (하위 섹션) ──
+    st.divider()
+    st.markdown("## 📅 배치 이력 분석")
 
     all_placements = get_all_placements()
     if all_placements.empty:
-        st.warning("배치 이력이 없습니다.")
-        st.stop()
+        st.info("배치 이력이 없습니다.")
+    else:
+        tab_loc, tab_prod, tab_timeline = st.tabs([
+            "같은 자리 비교", "같은 상품 비교", "배치 타임라인"
+        ])
 
-    tab_loc, tab_prod, tab_timeline = st.tabs([
-        "같은 자리 비교", "같은 상품 비교", "배치 타임라인"
-    ])
+        with tab_loc:
+            st.subheader("같은 자리, 다른 상품 — 일평균 매출 비교")
+            locations = get_all_locations()
+            loc_options = locations[["id", "display_label"]].to_dict("records")
+            sel_loc = st.selectbox("선반 위치 선택", loc_options,
+                                   format_func=lambda x: x["display_label"], key="history_loc")
 
-    with tab_loc:
-        st.subheader("같은 자리, 다른 상품 — 일평균 매출 비교")
-        locations = get_all_locations()
-        loc_options = locations[["id", "display_label"]].to_dict("records")
-        sel_loc = st.selectbox("선반 위치 선택", loc_options,
-                               format_func=lambda x: x["display_label"], key="history_loc")
-
-        if sel_loc:
-            history = get_placement_history(sel_loc["id"])
-            if history.empty:
-                st.info("이 위치에 배치 이력이 없습니다.")
-            else:
-                st.dataframe(
-                    history[["product_name", "erp_category", "start_date", "end_date", "notes"]],
-                    use_container_width=True, hide_index=True)
-
-                chart_data = []
-                for _, h in history.iterrows():
-                    s_date = str(h["start_date"])
-                    e_date = str(h["end_date"]) if pd.notna(h["end_date"]) else date.today().isoformat()
-                    sales = fetch_sales_for_placement_history(h["product_name"], s_date, e_date)
-                    daily_rev = sales["total_revenue"] / max(1, sales["days"])
-                    chart_data.append({
-                        "상품": h["product_name"][:15], "기간": f"{s_date} ~ {e_date}",
-                        "일평균매출": daily_rev,
-                    })
-
-                if chart_data:
-                    chart_df = pd.DataFrame(chart_data)
-                    fig = px.bar(chart_df, x="상품", y="일평균매출", color="기간",
-                                 title=f"{sel_loc['display_label']} — 배치별 일평균 매출", text_auto=",.0f")
-                    st.plotly_chart(fig, use_container_width=True)
-
-    with tab_prod:
-        st.subheader("같은 상품, 다른 위치 — 일평균 매출 비교")
-        if not all_placements.empty:
-            product_names = sorted(all_placements["product_name"].unique().tolist())
-            sel_prod = st.selectbox("상품 선택", product_names, key="history_prod")
-
-            if sel_prod:
-                prod_history = get_product_placement_history(sel_prod)
-                if prod_history.empty:
-                    st.info("이 상품의 배치 이력이 없습니다.")
+            if sel_loc:
+                history = get_placement_history(sel_loc["id"])
+                if history.empty:
+                    st.info("이 위치에 배치 이력이 없습니다.")
                 else:
-                    st.dataframe(prod_history[["display_label", "start_date", "end_date", "notes"]],
-                                 use_container_width=True, hide_index=True)
+                    st.dataframe(
+                        history[["product_name", "erp_category", "start_date", "end_date", "notes"]],
+                        use_container_width=True, hide_index=True)
 
                     chart_data = []
-                    for _, h in prod_history.iterrows():
+                    for _, h in history.iterrows():
                         s_date = str(h["start_date"])
                         e_date = str(h["end_date"]) if pd.notna(h["end_date"]) else date.today().isoformat()
-                        sales = fetch_sales_for_placement_history(sel_prod, s_date, e_date)
+                        sales = fetch_sales_for_placement_history(h["product_name"], s_date, e_date)
                         daily_rev = sales["total_revenue"] / max(1, sales["days"])
-                        chart_data.append({"위치": h["display_label"], "기간": f"{s_date} ~ {e_date}",
-                                           "일평균매출": daily_rev})
+                        chart_data.append({
+                            "상품": h["product_name"][:15], "기간": f"{s_date} ~ {e_date}",
+                            "일평균매출": daily_rev,
+                        })
 
                     if chart_data:
                         chart_df = pd.DataFrame(chart_data)
-                        fig = px.bar(chart_df, x="위치", y="일평균매출", color="기간",
-                                     title=f"{sel_prod} — 위치별 일평균 매출 비교", text_auto=",.0f")
+                        fig = px.bar(chart_df, x="상품", y="일평균매출", color="기간",
+                                     title=f"{sel_loc['display_label']} — 배치별 일평균 매출", text_auto=",.0f")
                         st.plotly_chart(fig, use_container_width=True)
 
-    with tab_timeline:
-        st.subheader("배치 타임라인")
-        if not all_placements.empty:
-            gantt_df = all_placements.copy()
-            gantt_df["start"] = pd.to_datetime(gantt_df["start_date"])
-            gantt_df["end"] = pd.to_datetime(gantt_df["end_date"].fillna(date.today().isoformat()))
+        with tab_prod:
+            st.subheader("같은 상품, 다른 위치 — 일평균 매출 비교")
+            if not all_placements.empty:
+                product_names = sorted(all_placements["product_name"].unique().tolist())
+                sel_prod = st.selectbox("상품 선택", product_names, key="history_prod")
 
-            gantt_type = st.selectbox("매대 타입 필터", ["전체"] + list(SHELF_CONFIGS.keys()), key="gantt_type")
-            if gantt_type != "전체":
-                gantt_df = gantt_df[gantt_df["shelf_type"] == gantt_type]
+                if sel_prod:
+                    prod_history = get_product_placement_history(sel_prod)
+                    if prod_history.empty:
+                        st.info("이 상품의 배치 이력이 없습니다.")
+                    else:
+                        st.dataframe(prod_history[["display_label", "start_date", "end_date", "notes"]],
+                                     use_container_width=True, hide_index=True)
 
-            if gantt_df.empty:
-                st.info("해당 조건의 배치 이력이 없습니다.")
-            else:
-                gantt_df = gantt_df.head(50)
-                fig = px.timeline(gantt_df, x_start="start", x_end="end", y="display_label",
-                                  color="erp_category", hover_name="product_name",
-                                  title="배치 타임라인 (Gantt Chart)",
-                                  labels={"display_label": "선반 위치", "erp_category": "카테고리"})
-                fig.update_layout(height=max(400, len(gantt_df) * 25 + 100),
-                                  yaxis=dict(autorange="reversed"))
-                st.plotly_chart(fig, use_container_width=True)
+                        chart_data = []
+                        for _, h in prod_history.iterrows():
+                            s_date = str(h["start_date"])
+                            e_date = str(h["end_date"]) if pd.notna(h["end_date"]) else date.today().isoformat()
+                            sales = fetch_sales_for_placement_history(sel_prod, s_date, e_date)
+                            daily_rev = sales["total_revenue"] / max(1, sales["days"])
+                            chart_data.append({"위치": h["display_label"], "기간": f"{s_date} ~ {e_date}",
+                                               "일평균매출": daily_rev})
+
+                        if chart_data:
+                            chart_df = pd.DataFrame(chart_data)
+                            fig = px.bar(chart_df, x="위치", y="일평균매출", color="기간",
+                                         title=f"{sel_prod} — 위치별 일평균 매출 비교", text_auto=",.0f")
+                            st.plotly_chart(fig, use_container_width=True)
+
+        with tab_timeline:
+            st.subheader("배치 타임라인")
+            if not all_placements.empty:
+                gantt_df = all_placements.copy()
+                gantt_df["start"] = pd.to_datetime(gantt_df["start_date"])
+                gantt_df["end"] = pd.to_datetime(gantt_df["end_date"].fillna(date.today().isoformat()))
+
+                gantt_type = st.selectbox("매대 타입 필터", ["전체"] + list(SHELF_CONFIGS.keys()), key="gantt_type")
+                if gantt_type != "전체":
+                    gantt_df = gantt_df[gantt_df["shelf_type"] == gantt_type]
+
+                if gantt_df.empty:
+                    st.info("해당 조건의 배치 이력이 없습니다.")
+                else:
+                    gantt_df = gantt_df.head(50)
+                    fig = px.timeline(gantt_df, x_start="start", x_end="end", y="display_label",
+                                      color="erp_category", hover_name="product_name",
+                                      title="배치 타임라인 (Gantt Chart)",
+                                      labels={"display_label": "선반 위치", "erp_category": "카테고리"})
+                    fig.update_layout(height=max(400, len(gantt_df) * 25 + 100),
+                                      yaxis=dict(autorange="reversed"))
+                    st.plotly_chart(fig, use_container_width=True)
 
 
 # ======================================================================
-# 탭 5: SKU 치수 관리
+# SKU 치수 관리
 # ======================================================================
 elif menu == "📐 SKU 치수 관리":
     st.title("📐 SKU 치수 관리")
