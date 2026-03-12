@@ -11,10 +11,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import date, timedelta
 from io import BytesIO
-import threading
+
 import json as _json
 from pathlib import Path
-from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from shelf_config import SHELF_CONFIGS, get_total_locations
 from shelf_data import (
@@ -63,94 +62,29 @@ init_db()
 
 
 # ──────────────────────────────────────
-# 에디터 저장 API (포트 8503)
+# 에디터 저장 API (포트 8503) — 별도 프로세스
 # ──────────────────────────────────────
 LAYOUT_FILE = Path(__file__).parent / "shelf_layout.json"
 FOREON_LAYOUT_FILE = Path(__file__).parent / "foreon_layout.json"
 
 
-def _start_layout_api():
-    class Handler(BaseHTTPRequestHandler):
-        def do_POST(self):
-            if self.path == "/save-layout":
-                length = int(self.headers["Content-Length"])
-                data = _json.loads(self.rfile.read(length))
-                fx_list = data.get("fixtures", [])
-                fac_list = data.get("facilities", [])
-                # DB 저장 (매대 위치)
-                if fx_list:
-                    bulk_update_fixture_positions(fx_list)
-                # 로컬 파일 저장 (매대 + 시설물 전체)
-                try:
-                    with open(str(LAYOUT_FILE), "w", encoding="utf-8") as f:
-                        _json.dump(data, f, ensure_ascii=False, indent=2)
-                except Exception:
-                    pass
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.end_headers()
-                self.wfile.write(_json.dumps({"ok": True, "count": len(fx_list)}).encode())
-            elif self.path == "/save-foreon-layout":
-                length = int(self.headers["Content-Length"])
-                data = _json.loads(self.rfile.read(length))
-                # 포레온은 DB 저장 없이 로컬 파일만 저장 (시뮬레이션 전용)
-                try:
-                    with open(str(FOREON_LAYOUT_FILE), "w", encoding="utf-8") as f:
-                        _json.dump(data, f, ensure_ascii=False, indent=2)
-                except Exception:
-                    pass
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.end_headers()
-                fx_count = len(data.get("fixtures", []))
-                self.wfile.write(_json.dumps({"ok": True, "count": fx_count}).encode())
-            elif self.path == "/foreon-select-fixture":
-                length = int(self.headers["Content-Length"])
-                data = _json.loads(self.rfile.read(length))
-                fx_id = data.get("fixture_id", "")
-                try:
-                    with open("/tmp/foreon_selected_fx.txt", "w") as f:
-                        f.write(fx_id)
-                except Exception:
-                    pass
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.end_headers()
-                self.wfile.write(_json.dumps({"ok": True, "fixture_id": fx_id}).encode())
-            else:
-                self.send_response(404)
-                self.end_headers()
-
-        def do_OPTIONS(self):
-            self.send_response(200)
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
-            self.end_headers()
-
-        def log_message(self, *args):
-            pass
-
-    try:
-        server = HTTPServer(("localhost", 8503), Handler)
-        server.serve_forever()
-    except OSError:
-        pass  # 이미 실행 중
-
-
-_layout_api_started = False
-
-
 def _ensure_layout_api():
-    global _layout_api_started
-    if _layout_api_started:
-        return
-    _layout_api_started = True
-    t = threading.Thread(target=_start_layout_api, daemon=True)
-    t.start()
+    """포트 8503 API 서버가 살아있는지 확인 후, 없으면 subprocess로 시작"""
+    import socket, subprocess, sys
+    try:
+        s = socket.create_connection(("localhost", 8503), timeout=0.5)
+        s.close()
+        return  # 이미 살아있음
+    except (ConnectionRefusedError, OSError, socket.timeout):
+        pass
+    # 별도 프로세스로 layout_api_server.py 시작
+    api_script = Path(__file__).parent / "layout_api_server.py"
+    subprocess.Popen(
+        [sys.executable, str(api_script)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
 
 
 _ensure_layout_api()
