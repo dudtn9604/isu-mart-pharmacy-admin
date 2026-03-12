@@ -5,3 +5,4 @@ plotly
 requests
 numpy
 supabase
+anthropic
