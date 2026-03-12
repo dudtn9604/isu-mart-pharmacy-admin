@@ -134,7 +134,7 @@ with st.sidebar:
     # 페이지 선택
     page = st.radio(
         "📌 메뉴",
-        options=["📊 현황 분석", "📈 트렌드 분석", "💰 매출 분석", "💄 약국 화장품"],
+        options=["📊 현황 분석", "📈 트렌드 분석", "💰 매출 분석", "💄 약국 화장품", "🏷️ 쇼카드 제작"],
         index=0,
     )
 
@@ -3346,6 +3346,287 @@ def page_cosmetics_dashboard():
 
 
 # ══════════════════════════════════════
+#  쇼카드 제작 페이지
+# ══════════════════════════════════════
+
+def page_showcard():
+    st.title("🏷️ 쇼카드 제작")
+    st.caption("매대 쇼카드를 직접 제작하고 인쇄용 PDF/SVG로 다운로드합니다.")
+
+    from supabase_client import is_supabase_configured, fetch_products
+    from trend_config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+
+    # ── 상수 ──
+    SC_COLORS = {
+        "진통/해열": "#d6211a", "소화/위장": "#5e9e33", "잇몸/치과": "#e61a40",
+        "치질": "#94c96e", "비염/코": "#14a1ad", "눈건강": "#2e2b85",
+        "피부/연고": "#e61778", "여성건강": "#a80d82", "간/영양": "#146133",
+        "소화효소": "#1c2e6e", "탈모": "#1c9ecc", "관절": "#0a82c2",
+        "감기약": "#d6211a", "알레르기・비염약": "#14a1ad", "위장 건강": "#5e9e33",
+        "피로회복・종합영양": "#146133", "근육・파스": "#0a82c2", "피부 건강": "#e61778",
+        "구강": "#e61a40", "이너뷰티": "#a80d82", "생활건강": "#5e9e33",
+    }
+    SC_SIZES = {
+        "S": {"w": 54, "label": "S (54mm)", "desc": "진열폭 3-5cm"},
+        "M": {"w": 70, "label": "M (70mm)", "desc": "진열폭 5-7cm"},
+        "L": {"w": 90, "label": "L (90mm)", "desc": "진열폭 7-11cm"},
+        "XL": {"w": 110, "label": "XL (110mm)", "desc": "진열폭 11-15cm"},
+        "XXL": {"w": 150, "label": "XXL (150mm)", "desc": "진열폭 15cm+"},
+    }
+
+    def _sc_color(cat):
+        if not cat: return "#5e9e33"
+        for k, c in SC_COLORS.items():
+            if k in cat or cat in k: return c
+        return "#5e9e33"
+
+    def _esc(s):
+        return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+    def _fit(text, max_w, max_fs, min_fs=8):
+        for fs in range(int(max_fs), int(min_fs) - 1, -1):
+            if len(text) * fs * 0.55 <= max_w: return fs
+        return min_fs
+
+    def _badge(bt, x, y, wp):
+        if bt == "none": return ""
+        info = {"동일성분": ("동일성분", "저렴해요"), "유사성분": ("유사성분", "저렴해요"), "업그레이드": ("업그레이드", None)}.get(bt)
+        if not info: return ""
+        bw = min(wp * 0.4, 60)
+        s = (f'<rect x="{x}" y="{y}" width="{bw}" height="16" rx="8" fill="rgba(0,0,0,0.25)"/>'
+             f'<text x="{x+bw/2}" y="{y+11.5}" text-anchor="middle" fill="white" font-size="8" font-weight="700">{_esc(info[0])}</text>')
+        if info[1]:
+            x2 = x + bw + 4; bw2 = min(wp * 0.35, 52)
+            s += (f'<rect x="{x2}" y="{y}" width="{bw2}" height="16" rx="8" fill="rgba(255,255,255,0.3)"/>'
+                  f'<text x="{x2+bw2/2}" y="{y+11.5}" text-anchor="middle" fill="white" font-size="8" font-weight="700">{_esc(info[1])}</text>')
+        return s
+
+    def _design_a(wp, hp, bg, bt, l1, l2, l3):
+        r, p = 8, 8; fs3 = _fit(l3, wp-p*2, 28, 12); fs1 = _fit(l1 or "", wp-p*2, 12, 8)
+        t = ""
+        if l1: t += f'<text x="{wp/2}" y="{hp*0.42}" text-anchor="middle" fill="white" font-size="{fs1}" font-family="sans-serif" opacity="0.9">{_esc(l1)}</text>'
+        if l2: t += f'<text x="{wp/2}" y="{hp*0.56}" text-anchor="middle" fill="white" font-size="{max(fs1-1,8)}" font-family="sans-serif" opacity="0.8">{_esc(l2)}</text>'
+        return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {wp} {hp}" width="{wp}" height="{hp}">'
+                f'<rect width="{wp}" height="{hp}" rx="{r}" fill="{bg}"/>{_badge(bt,p,p,wp)}{t}'
+                f'<text x="{wp/2}" y="{hp*0.82}" text-anchor="middle" fill="white" font-size="{fs3}" font-weight="800" font-family="sans-serif">{_esc(l3)}</text></svg>')
+
+    def _design_b(wp, hp, bg, bt, l1, l2, l3):
+        r, p = 8, 8; oh = hp*0.38; fs3 = _fit(l3, wp-p*2, 26, 12); fs1 = _fit(l1 or "", wp-p*2, 11, 7)
+        t = ""
+        if l1: t += f'<text x="{wp/2}" y="{hp*0.35}" text-anchor="middle" fill="white" font-size="{fs1}" font-family="sans-serif" opacity="0.9">{_esc(l1)}</text>'
+        if l2: t += f'<text x="{wp/2}" y="{hp*0.50}" text-anchor="middle" fill="white" font-size="{max(fs1-1,7)}" font-family="sans-serif" opacity="0.8">{_esc(l2)}</text>'
+        return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {wp} {hp}" width="{wp}" height="{hp}">'
+                f'<rect width="{wp}" height="{hp}" rx="{r}" fill="{bg}"/>'
+                f'<rect y="{hp-oh}" width="{wp}" height="{oh}" fill="rgba(0,0,0,0.18)"/>'
+                f'{_badge(bt,p,p,wp)}{t}'
+                f'<text x="{wp/2}" y="{hp*0.84}" text-anchor="middle" fill="white" font-size="{fs3}" font-weight="800" font-family="sans-serif">{_esc(l3)}</text></svg>')
+
+    def _design_c(wp, hp, bg, bt, l1, l2, l3):
+        r = 8; bw = wp*0.12; pad = bw+8; fs3 = _fit(l3, wp-pad-8, 24, 11); fs1 = _fit(l1 or "", wp-pad-8, 11, 7)
+        t = ""
+        if bt != "none": t += f'<text x="{pad}" y="18" fill="{bg}" font-size="8" font-weight="700" font-family="sans-serif">{_esc(bt)}</text>'
+        if l1: t += f'<text x="{pad}" y="{hp*0.40}" fill="{bg}" font-size="{fs1}" font-family="sans-serif">{_esc(l1)}</text>'
+        if l2: t += f'<text x="{pad}" y="{hp*0.55}" fill="{bg}" font-size="{max(fs1-1,7)}" font-family="sans-serif" opacity="0.7">{_esc(l2)}</text>'
+        return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {wp} {hp}" width="{wp}" height="{hp}">'
+                f'<rect width="{wp}" height="{hp}" rx="{r}" fill="{bg}33"/>'
+                f'<rect width="{bw}" height="{hp}" rx="{r} 0 0 {r}" fill="{bg}"/>{t}'
+                f'<text x="{pad}" y="{hp*0.82}" fill="{bg}" font-size="{fs3}" font-weight="800" font-family="sans-serif">{_esc(l3)}</text></svg>')
+
+    # Supabase 쇼카드 저장/조회
+    def _sb_showcard_client():
+        if not is_supabase_configured(): return None
+        try:
+            from supabase import create_client
+            return create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+        except Exception:
+            return None
+
+    def _save_showcard(data):
+        sb = _sb_showcard_client()
+        if sb:
+            sb.table("showcards").insert(data).execute()
+
+    def _load_showcard_history():
+        sb = _sb_showcard_client()
+        if not sb: return []
+        try:
+            res = sb.table("showcards").select("*").order("created_at", desc=True).limit(30).execute()
+            return res.data or []
+        except Exception:
+            return []
+
+    # ── 상품 로드 ──
+    @st.cache_data(ttl=600)
+    def _load_products():
+        try:
+            return fetch_products()
+        except Exception:
+            return pd.DataFrame()
+
+    products_df = _load_products()
+    if products_df.empty:
+        st.warning("상품 데이터를 불러올 수 없습니다. Supabase 연결을 확인해주세요.")
+        return
+
+    product_names = sorted(products_df["name"].dropna().unique().tolist())
+
+    # ── Step 1: 상품 선택 ──
+    st.subheader("1️⃣ 상품 선택")
+    sc_product = st.selectbox("상품 검색", [""] + product_names, index=0, key="sc_product")
+
+    if not sc_product:
+        # 이력만 표시
+        st.markdown("---")
+        st.subheader("📋 최근 제작 이력")
+        hist = _load_showcard_history()
+        if hist:
+            design_names = {1: "클래식", 2: "모던", 3: "미니멀"}
+            hist_rows = [{"제품명": h.get("product_name",""), "사이즈": h.get("size_class",""),
+                          "디자인": design_names.get(h.get("selected_design"),""), "워딩": h.get("wording_line1",""),
+                          "제작일": pd.to_datetime(h.get("created_at","")).strftime("%Y-%m-%d %H:%M") if h.get("created_at") else ""} for h in hist]
+            st.dataframe(pd.DataFrame(hist_rows), use_container_width=True, hide_index=True)
+        else:
+            st.info("아직 제작 이력이 없습니다.")
+        return
+
+    # 상품 정보
+    p_row = products_df[products_df["name"] == sc_product].iloc[0]
+    category = p_row.get("erp_category", "") or ""
+    st.info(f"📦 **{sc_product}** — 카테고리: {category or '미분류'}")
+
+    # ── Step 2: 사이즈 & 색상 ──
+    st.subheader("2️⃣ 사이즈 & 색상")
+    col_sz, col_clr = st.columns(2)
+    with col_sz:
+        size_opts = list(SC_SIZES.keys())
+        sc_size = st.selectbox("사이즈", size_opts, index=1,
+                               format_func=lambda x: f"{SC_SIZES[x]['label']} — {SC_SIZES[x]['desc']}", key="sc_size")
+    with col_clr:
+        sc_color = st.color_picker("배경 색상", _sc_color(category), key="sc_color")
+
+    # ── Step 3: 뱃지 ──
+    st.subheader("3️⃣ 뱃지 타입")
+    sc_badge = st.radio("뱃지", ["none", "동일성분", "유사성분", "업그레이드"],
+                        format_func=lambda x: {"none":"없음","동일성분":"동일성분 + 저렴해요","유사성분":"유사성분 + 저렴해요","업그레이드":"업그레이드"}.get(x,x),
+                        horizontal=True, key="sc_badge")
+
+    # ── Step 4: 워딩 ──
+    st.subheader("4️⃣ 워딩 입력")
+    col_w1, col_w2 = st.columns(2)
+    with col_w1:
+        sc_l1 = st.text_input("1줄: 소구 포인트", placeholder="예: 같은 성분, 더 저렴하게", key="sc_l1")
+        sc_l2 = st.text_input("2줄: 부가 설명 (선택)", key="sc_l2")
+        sc_l3 = st.text_input("3줄: 제품명", value=sc_product, key="sc_l3")
+
+    with col_w2:
+        st.markdown("**✨ AI 워딩 제안**")
+        if st.button("AI 카피 생성", key="sc_ai_btn", use_container_width=True):
+            with st.spinner("AI가 카피를 생성 중..."):
+                try:
+                    import anthropic, json
+                    client = anthropic.Anthropic()
+                    prompt = (f"마트약국 쇼카드 카피라이터. 원본 기반 2가지 대안 제안. 한 줄 15자 이내.\n"
+                              f"제품명: {sc_product}\n카테고리: {category}\n뱃지: {sc_badge}\n"
+                              f"원본: 1줄:{sc_l1} / 2줄:{sc_l2} / 3줄:{sc_l3}\n"
+                              f'JSON만: {{"variantA":{{"line1":"...","line2":"...","line3":"{sc_product}"}},'
+                              f'"variantB":{{"line1":"...","line2":"...","line3":"{sc_product}"}}}}')
+                    resp = client.messages.create(model="claude-haiku-4-5-20251001", max_tokens=300,
+                                                 messages=[{"role":"user","content":prompt}])
+                    t = resp.content[0].text.strip()
+                    if "{" in t: t = t[t.index("{"):t.rindex("}")+1]
+                    st.session_state["sc_ai"] = json.loads(t)
+                except ImportError:
+                    st.session_state["sc_ai"] = {
+                        "variantA": {"line1": (sc_l1[:8]+"!" if sc_l1 else "추천 제품"), "line2": "가성비 최고", "line3": sc_product},
+                        "variantB": {"line1": {"동일성분":"같은 성분, 더 저렴하게","유사성분":"비슷한 효과, 합리적 가격","업그레이드":"한 단계 업그레이드"}.get(sc_badge,"약사 추천"), "line2": category, "line3": sc_product},
+                    }
+                    st.warning("anthropic 미설치 — 규칙 기반 폴백 적용")
+                except Exception as e:
+                    st.error(f"AI 실패: {e}")
+
+        if "sc_ai" in st.session_state:
+            ai = st.session_state["sc_ai"]
+            wc = st.radio("워딩 선택", ["내가 쓴 워딩", "AI A (임팩트)", "AI B (설득력)"], key="sc_wc")
+            if wc == "AI A (임팩트)":
+                v = ai["variantA"]; st.caption(f'{v["line1"]} / {v["line2"]} / {v["line3"]}')
+            elif wc == "AI B (설득력)":
+                v = ai["variantB"]; st.caption(f'{v["line1"]} / {v["line2"]} / {v["line3"]}')
+
+    # 최종 워딩 결정
+    fl1, fl2, fl3, ws = sc_l1, sc_l2, sc_l3, "original"
+    if "sc_ai" in st.session_state and "sc_wc" in st.session_state:
+        ai = st.session_state["sc_ai"]
+        if st.session_state["sc_wc"] == "AI A (임팩트)":
+            v = ai["variantA"]; fl1, fl2, fl3, ws = v["line1"], v["line2"], v["line3"], "ai_a"
+        elif st.session_state["sc_wc"] == "AI B (설득력)":
+            v = ai["variantB"]; fl1, fl2, fl3, ws = v["line1"], v["line2"], v["line3"], "ai_b"
+
+    # ── Step 5: 디자인 프리뷰 ──
+    st.subheader("5️⃣ 디자인 프리뷰")
+    sz = SC_SIZES[sc_size]; wp, hp = sz["w"]*3, 65*3
+    svg_a = _design_a(wp, hp, sc_color, sc_badge, fl1, fl2, fl3)
+    svg_b = _design_b(wp, hp, sc_color, sc_badge, fl1, fl2, fl3)
+    svg_c = _design_c(wp, hp, sc_color, sc_badge, fl1, fl2, fl3)
+
+    c1, c2, c3 = st.columns(3)
+    with c1: st.markdown("**A. 클래식**"); st.markdown(svg_a, unsafe_allow_html=True)
+    with c2: st.markdown("**B. 모던**"); st.markdown(svg_b, unsafe_allow_html=True)
+    with c3: st.markdown("**C. 미니멀**"); st.markdown(svg_c, unsafe_allow_html=True)
+
+    sc_design = st.radio("디자인 선택", ["A. 클래식", "B. 모던", "C. 미니멀"], horizontal=True, key="sc_dc")
+    di = {"A. 클래식": 0, "B. 모던": 1, "C. 미니멀": 2}[sc_design]
+    sel_svg = [svg_a, svg_b, svg_c][di]
+
+    # ── Step 6: 다운로드 ──
+    st.subheader("6️⃣ 다운로드")
+    dl = ["classic", "modern", "minimal"][di]
+    fname = f"showcard_{sc_product}_{sc_size}_{dl}"
+
+    dc1, dc2 = st.columns(2)
+    with dc1:
+        st.download_button("📥 SVG 다운로드", data=sel_svg, file_name=f"{fname}.svg", mime="image/svg+xml",
+                           use_container_width=True, key="sc_dl_svg")
+    with dc2:
+        # PDF 생성 시도
+        pdf_ok = False
+        try:
+            import cairosvg
+            from io import BytesIO as _BIO
+            pdf_data = cairosvg.svg2pdf(bytestring=sel_svg.encode("utf-8"))
+            st.download_button("📥 PDF 다운로드 (인쇄용)", data=pdf_data, file_name=f"{fname}.pdf",
+                               mime="application/pdf", use_container_width=True, key="sc_dl_pdf")
+            pdf_ok = True
+        except ImportError:
+            st.caption("PDF 변환: `pip install cairosvg` 필요")
+
+    # 이력 저장
+    if st.button("💾 이력 저장", key="sc_save", use_container_width=True):
+        try:
+            _save_showcard({
+                "product_name": sc_product, "category": category, "badge_type": sc_badge,
+                "appeal_text": fl1, "wording_line1": fl1, "wording_line2": fl2, "wording_line3": fl3,
+                "wording_source": ws, "size_class": sc_size, "card_width_mm": sz["w"],
+                "card_height_mm": 65, "bg_color": sc_color, "selected_design": di + 1,
+            })
+            st.success("이력 저장 완료!")
+        except Exception as e:
+            st.error(f"저장 실패: {e}")
+
+    # ── 제작 이력 ──
+    st.markdown("---")
+    st.subheader("📋 최근 제작 이력")
+    hist = _load_showcard_history()
+    if hist:
+        design_names = {1: "클래식", 2: "모던", 3: "미니멀"}
+        hist_rows = [{"제품명": h.get("product_name",""), "사이즈": h.get("size_class",""),
+                      "디자인": design_names.get(h.get("selected_design"),""), "워딩": h.get("wording_line1",""),
+                      "제작일": pd.to_datetime(h.get("created_at","")).strftime("%Y-%m-%d %H:%M") if h.get("created_at") else ""} for h in hist]
+        st.dataframe(pd.DataFrame(hist_rows), use_container_width=True, hide_index=True)
+    else:
+        st.info("아직 제작 이력이 없습니다.")
+
+
+# ══════════════════════════════════════
 #  페이지 라우팅
 # ══════════════════════════════════════
 if page == "📊 현황 분석":
@@ -3356,3 +3637,5 @@ elif page == "💰 매출 분석":
     page_sales_analysis()
 elif page == "💄 약국 화장품":
     page_cosmetics_dashboard()
+elif page == "🏷️ 쇼카드 제작":
+    page_showcard()

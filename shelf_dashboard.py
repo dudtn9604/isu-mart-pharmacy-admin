@@ -44,6 +44,8 @@ from shelf_data import (
     bulk_update_fixture_positions,
     set_fixture_tiers_enabled,
     get_fixture_tier_status,
+    get_showcard_history,
+    save_showcard,
 )
 
 # ──────────────────────────────────────
@@ -158,7 +160,7 @@ st.sidebar.markdown("---")
 
 menu = st.sidebar.radio(
     "메뉴",
-    ["🗺️ 매장 배치도", "✏️ 배치 관리", "📊 위치별 성과 분석", "📅 배치 이력 분석", "📐 SKU 치수 관리", "🛒 교차판매 분석"],
+    ["🗺️ 매장 배치도", "✏️ 배치 관리", "📊 위치별 성과 분석", "📅 배치 이력 분석", "📐 SKU 치수 관리", "🛒 교차판매 분석", "🏷️ 쇼카드 제작"],
     label_visibility="collapsed",
 )
 
@@ -3041,3 +3043,415 @@ elif menu == "🛒 교차판매 분석":
                             "⚠️ 권장: 인접 매대가 아니므로 가까이 배치 시 교차판매 효과 기대 | "
                             "실제 배치 변경은 '✏️ 배치 관리' 메뉴에서 수행하세요."
                         )
+
+# ======================================================================
+# 쇼카드 제작
+# ======================================================================
+elif menu == "🏷️ 쇼카드 제작":
+    st.header("🏷️ 쇼카드 제작")
+    st.caption("매대 쇼카드를 직접 제작하고 인쇄용 PDF로 다운로드합니다.")
+
+    # ── 상수 ──
+    SHOWCARD_COLORS = {
+        "진통/해열": "#d6211a", "소화/위장": "#5e9e33", "잇몸/치과": "#e61a40",
+        "치질": "#94c96e", "비염/코": "#14a1ad", "눈건강": "#2e2b85",
+        "피부/연고": "#e61778", "여성건강": "#a80d82", "간/영양": "#146133",
+        "소화효소": "#1c2e6e", "탈모": "#1c9ecc", "관절": "#0a82c2",
+    }
+    SHOWCARD_SIZES = {
+        "S": {"w": 54, "label": "S (54mm)", "desc": "진열폭 3-5cm"},
+        "M": {"w": 70, "label": "M (70mm)", "desc": "진열폭 5-7cm"},
+        "L": {"w": 90, "label": "L (90mm)", "desc": "진열폭 7-11cm"},
+        "XL": {"w": 110, "label": "XL (110mm)", "desc": "진열폭 11-15cm"},
+        "XXL": {"w": 150, "label": "XXL (150mm)", "desc": "진열폭 15cm+"},
+    }
+
+    def _get_showcard_color(category: str) -> str:
+        if not category:
+            return "#5e9e33"
+        for key, color in SHOWCARD_COLORS.items():
+            if key in category or category in key:
+                return color
+        return "#5e9e33"
+
+    def _recommend_size(width_cm: float) -> str:
+        if width_cm <= 5: return "S"
+        if width_cm <= 7: return "M"
+        if width_cm <= 11: return "L"
+        if width_cm <= 15: return "XL"
+        return "XXL"
+
+    def _escape_xml(s: str) -> str:
+        return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+    def _auto_fit(text: str, max_w: float, max_fs: float, min_fs: float = 8) -> float:
+        char_w = 0.55
+        for fs in range(int(max_fs), int(min_fs) - 1, -1):
+            if len(text) * fs * char_w <= max_w:
+                return fs
+        return min_fs
+
+    def _badge_svg(badge_type: str, x: float, y: float, w_px: float) -> str:
+        if badge_type == "none":
+            return ""
+        badges = {
+            "동일성분": {"text": "동일성분", "text2": "저렴해요"},
+            "유사성분": {"text": "유사성분", "text2": "저렴해요"},
+            "업그레이드": {"text": "업그레이드", "text2": None},
+        }
+        b = badges.get(badge_type)
+        if not b:
+            return ""
+        bw = min(w_px * 0.4, 60)
+        svg = (f'<rect x="{x}" y="{y}" width="{bw}" height="16" rx="8" fill="rgba(0,0,0,0.25)"/>'
+               f'<text x="{x + bw/2}" y="{y + 11.5}" text-anchor="middle" fill="white" '
+               f'font-size="8" font-weight="700">{_escape_xml(b["text"])}</text>')
+        if b["text2"]:
+            x2 = x + bw + 4
+            bw2 = min(w_px * 0.35, 52)
+            svg += (f'<rect x="{x2}" y="{y}" width="{bw2}" height="16" rx="8" fill="rgba(255,255,255,0.3)"/>'
+                    f'<text x="{x2 + bw2/2}" y="{y + 11.5}" text-anchor="middle" fill="white" '
+                    f'font-size="8" font-weight="700">{_escape_xml(b["text2"])}</text>')
+        return svg
+
+    def _gen_design_a(w_px, h_px, bg, badge, l1, l2, l3):
+        r, pad = 8, 8
+        fs3 = _auto_fit(l3, w_px - pad*2, 28, 12)
+        fs1 = _auto_fit(l1 or "", w_px - pad*2, 12, 8)
+        lines = []
+        if l1: lines.append(f'<text x="{w_px/2}" y="{h_px*0.42}" text-anchor="middle" fill="white" font-size="{fs1}" font-family="sans-serif" opacity="0.9">{_escape_xml(l1)}</text>')
+        if l2: lines.append(f'<text x="{w_px/2}" y="{h_px*0.56}" text-anchor="middle" fill="white" font-size="{max(fs1-1,8)}" font-family="sans-serif" opacity="0.8">{_escape_xml(l2)}</text>')
+        return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w_px} {h_px}" width="{w_px}" height="{h_px}">'
+                f'<rect width="{w_px}" height="{h_px}" rx="{r}" fill="{bg}"/>'
+                f'{_badge_svg(badge, pad, pad, w_px)}'
+                f'{"".join(lines)}'
+                f'<text x="{w_px/2}" y="{h_px*0.82}" text-anchor="middle" fill="white" font-size="{fs3}" font-weight="800" font-family="sans-serif">{_escape_xml(l3)}</text>'
+                f'</svg>')
+
+    def _gen_design_b(w_px, h_px, bg, badge, l1, l2, l3):
+        r, pad = 8, 8
+        overlay_h = h_px * 0.38
+        fs3 = _auto_fit(l3, w_px - pad*2, 26, 12)
+        fs1 = _auto_fit(l1 or "", w_px - pad*2, 11, 7)
+        lines = []
+        if l1: lines.append(f'<text x="{w_px/2}" y="{h_px*0.35}" text-anchor="middle" fill="white" font-size="{fs1}" font-family="sans-serif" opacity="0.9">{_escape_xml(l1)}</text>')
+        if l2: lines.append(f'<text x="{w_px/2}" y="{h_px*0.50}" text-anchor="middle" fill="white" font-size="{max(fs1-1,7)}" font-family="sans-serif" opacity="0.8">{_escape_xml(l2)}</text>')
+        return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w_px} {h_px}" width="{w_px}" height="{h_px}">'
+                f'<rect width="{w_px}" height="{h_px}" rx="{r}" fill="{bg}"/>'
+                f'<rect y="{h_px - overlay_h}" width="{w_px}" height="{overlay_h}" fill="rgba(0,0,0,0.18)"/>'
+                f'{_badge_svg(badge, pad, pad, w_px)}'
+                f'{"".join(lines)}'
+                f'<text x="{w_px/2}" y="{h_px*0.84}" text-anchor="middle" fill="white" font-size="{fs3}" font-weight="800" font-family="sans-serif">{_escape_xml(l3)}</text>'
+                f'</svg>')
+
+    def _gen_design_c(w_px, h_px, bg, badge, l1, l2, l3):
+        r = 8
+        bar_w = w_px * 0.12
+        pad = bar_w + 8
+        light_bg = bg + "33"
+        fs3 = _auto_fit(l3, w_px - pad - 8, 24, 11)
+        fs1 = _auto_fit(l1 or "", w_px - pad - 8, 11, 7)
+        lines = []
+        if badge != "none":
+            lines.append(f'<text x="{pad}" y="18" fill="{bg}" font-size="8" font-weight="700" font-family="sans-serif">{_escape_xml(badge)}</text>')
+        if l1: lines.append(f'<text x="{pad}" y="{h_px*0.40}" fill="{bg}" font-size="{fs1}" font-family="sans-serif">{_escape_xml(l1)}</text>')
+        if l2: lines.append(f'<text x="{pad}" y="{h_px*0.55}" fill="{bg}" font-size="{max(fs1-1,7)}" font-family="sans-serif" opacity="0.7">{_escape_xml(l2)}</text>')
+        return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w_px} {h_px}" width="{w_px}" height="{h_px}">'
+                f'<rect width="{w_px}" height="{h_px}" rx="{r}" fill="{light_bg}"/>'
+                f'<rect width="{bar_w}" height="{h_px}" rx="{r} 0 0 {r}" fill="{bg}"/>'
+                f'{"".join(lines)}'
+                f'<text x="{pad}" y="{h_px*0.82}" fill="{bg}" font-size="{fs3}" font-weight="800" font-family="sans-serif">{_escape_xml(l3)}</text>'
+                f'</svg>')
+
+    def _svg_to_pdf_bytes(svg_str: str, w_mm: float, h_mm: float) -> bytes:
+        """SVG → PDF 변환 (reportlab 사용)"""
+        from io import BytesIO
+        try:
+            from svglib.svglib import renderSVG
+            from reportlab.graphics import renderPDF
+            drawing = renderSVG(BytesIO(svg_str.encode("utf-8")))
+            # 실제 mm → 포인트 (1mm = 2.8346pt)
+            pt_w = (w_mm + 4) * 2.8346  # +4 for bleed
+            pt_h = (h_mm + 4) * 2.8346
+            drawing.width = pt_w
+            drawing.height = pt_h
+            buf = BytesIO()
+            renderPDF.drawToFile(drawing, buf, fmt="PDF")
+            buf.seek(0)
+            return buf.read()
+        except ImportError:
+            pass
+        # Fallback: 간단한 PDF (SVG를 HTML 경유)
+        try:
+            import subprocess, tempfile, os
+            with tempfile.NamedTemporaryFile(suffix=".svg", delete=False, mode="w") as f:
+                f.write(svg_str)
+                svg_path = f.name
+            pdf_path = svg_path.replace(".svg", ".pdf")
+            # cairosvg 시도
+            import cairosvg
+            cairosvg.svg2pdf(url=svg_path, write_to=pdf_path)
+            with open(pdf_path, "rb") as pf:
+                data = pf.read()
+            os.unlink(svg_path)
+            os.unlink(pdf_path)
+            return data
+        except ImportError:
+            pass
+        # 최종 Fallback: 순수 reportlab로 텍스트만
+        try:
+            from reportlab.lib.pagesizes import mm
+            from reportlab.pdfgen import canvas as rl_canvas
+            buf = BytesIO()
+            c = rl_canvas.Canvas(buf, pagesize=((w_mm + 4) * mm, (h_mm + 4) * mm))
+            c.drawString(10, 10, "쇼카드 — SVG 렌더링 라이브러리를 설치해주세요 (pip install cairosvg)")
+            c.save()
+            buf.seek(0)
+            return buf.read()
+        except ImportError:
+            return b""
+
+    # ── 데이터 로드 ──
+    all_dims = get_all_dimensions()
+    dims_dict = {d["product_name"]: d for d in all_dims}
+    all_products_raw = get_current_placements()
+    product_names = sorted(set(p["product_name"] for p in all_products_raw if p.get("product_name")))
+
+    # ── 상품 선택 ──
+    st.subheader("1️⃣ 상품 선택")
+    sc_product = st.selectbox("상품 검색", [""] + product_names, index=0, key="sc_product")
+
+    if sc_product:
+        p_info = next((p for p in all_products_raw if p["product_name"] == sc_product), {})
+        category = p_info.get("erp_category", "")
+        dim = dims_dict.get(sc_product, {})
+
+        col_info1, col_info2 = st.columns(2)
+        with col_info1:
+            st.info(f"📦 **{sc_product}**")
+        with col_info2:
+            if dim:
+                st.info(f"📐 가로 {dim.get('width', '?')}cm × 높이 {dim.get('height', '?')}cm")
+            else:
+                st.warning("치수 미등록")
+
+        # ── 사이즈 & 색상 ──
+        st.subheader("2️⃣ 사이즈 & 색상")
+        col_sz, col_clr = st.columns(2)
+
+        with col_sz:
+            rec_size = _recommend_size(dim.get("width", 7)) if dim.get("width") else "M"
+            size_options = list(SHOWCARD_SIZES.keys())
+            sc_size = st.selectbox(
+                "사이즈",
+                size_options,
+                index=size_options.index(rec_size),
+                format_func=lambda x: f"{SHOWCARD_SIZES[x]['label']} — {SHOWCARD_SIZES[x]['desc']}",
+                key="sc_size",
+            )
+
+        with col_clr:
+            default_color = _get_showcard_color(category)
+            sc_color = st.color_picker("배경 색상", default_color, key="sc_color")
+
+        # ── 뱃지 ──
+        st.subheader("3️⃣ 뱃지 타입")
+        sc_badge = st.radio(
+            "뱃지",
+            ["none", "동일성분", "유사성분", "업그레이드"],
+            format_func=lambda x: {"none": "없음", "동일성분": "동일성분 + 저렴해요", "유사성분": "유사성분 + 저렴해요", "업그레이드": "업그레이드"}.get(x, x),
+            horizontal=True,
+            key="sc_badge",
+        )
+
+        # ── 워딩 입력 ──
+        st.subheader("4️⃣ 워딩 입력")
+        col_w1, col_w2 = st.columns(2)
+        with col_w1:
+            sc_line1 = st.text_input("1줄: 소구 포인트", placeholder="예: 같은 성분, 더 저렴하게", key="sc_l1")
+            sc_line2 = st.text_input("2줄: 부가 설명 (선택)", placeholder="예: 속 쓰림엔", key="sc_l2")
+            sc_line3 = st.text_input("3줄: 제품명", value=sc_product, key="sc_l3")
+
+        # AI 워딩 제안
+        with col_w2:
+            st.markdown("**✨ AI 워딩 제안**")
+            if st.button("AI 카피 생성", key="sc_ai_btn", use_container_width=True):
+                with st.spinner("AI가 카피를 생성하고 있어요..."):
+                    try:
+                        import anthropic
+                        client = anthropic.Anthropic()
+                        prompt = (
+                            f"마트약국 쇼카드 카피라이터로서, 다음 원본 워딩을 기반으로 2가지 대안을 제안하세요.\n"
+                            f"오프라인 매장 쇼카드용으로 짧고 임팩트 있게 작성. 한 줄은 최대 15자 내외.\n\n"
+                            f"제품명: {sc_product}\n카테고리: {category or '미분류'}\n뱃지: {sc_badge}\n"
+                            f"원본 워딩:\n1줄: {sc_line1}\n2줄: {sc_line2 or '(없음)'}\n3줄: {sc_line3}\n\n"
+                            f"기존 쇼카드 예시:\n- \"같은 성분, 더 저렴하게\" + \"노바손\"\n"
+                            f"- \"속 쓰림엔\" + \"타이센\"\n- \"잇몸 튼튼\" + \"치렉스정\"\n\n"
+                            f"JSON으로만 응답:\n"
+                            f'{{"variantA":{{"line1":"임팩트카피","line2":"부가설명","line3":"{sc_product}"}},'
+                            f'"variantB":{{"line1":"설득력카피","line2":"효능강조","line3":"{sc_product}"}}}}'
+                        )
+                        resp = client.messages.create(
+                            model="claude-haiku-4-5-20251001",
+                            max_tokens=300,
+                            messages=[{"role": "user", "content": prompt}],
+                        )
+                        import json
+                        ai_text = resp.content[0].text.strip()
+                        # JSON 추출
+                        if "{" in ai_text:
+                            ai_text = ai_text[ai_text.index("{"):ai_text.rindex("}") + 1]
+                        ai_result = json.loads(ai_text)
+                        st.session_state["sc_ai_result"] = ai_result
+                    except ImportError:
+                        st.warning("anthropic 패키지 미설치. `pip install anthropic` 후 ANTHROPIC_API_KEY 환경변수 설정 필요")
+                        # 폴백
+                        st.session_state["sc_ai_result"] = {
+                            "variantA": {"line1": sc_line1[:8] + "!" if sc_line1 else "추천 제품", "line2": "가성비 최고", "line3": sc_product},
+                            "variantB": {"line1": {"동일성분": "같은 성분, 더 저렴하게", "유사성분": "비슷한 효과, 합리적 가격", "업그레이드": "한 단계 업그레이드"}.get(sc_badge, "약사 추천"), "line2": category or "", "line3": sc_product},
+                        }
+                    except Exception as e:
+                        st.error(f"AI 생성 실패: {e}")
+                        st.session_state["sc_ai_result"] = {
+                            "variantA": {"line1": sc_line1[:8] + "!" if sc_line1 else "추천 제품", "line2": "가성비 최고", "line3": sc_product},
+                            "variantB": {"line1": "약사 추천", "line2": category or "", "line3": sc_product},
+                        }
+
+            if "sc_ai_result" in st.session_state:
+                ai = st.session_state["sc_ai_result"]
+                st.markdown("---")
+                wording_choice = st.radio(
+                    "워딩 선택",
+                    ["내가 쓴 워딩", "AI 제안 A (임팩트)", "AI 제안 B (설득력)"],
+                    key="sc_wording_choice",
+                )
+                if wording_choice == "AI 제안 A (임팩트)":
+                    va = ai["variantA"]
+                    st.caption(f'1줄: {va["line1"]}')
+                    st.caption(f'2줄: {va["line2"]}')
+                    st.caption(f'3줄: {va["line3"]}')
+                elif wording_choice == "AI 제안 B (설득력)":
+                    vb = ai["variantB"]
+                    st.caption(f'1줄: {vb["line1"]}')
+                    st.caption(f'2줄: {vb["line2"]}')
+                    st.caption(f'3줄: {vb["line3"]}')
+                else:
+                    st.caption(f"1줄: {sc_line1} / 2줄: {sc_line2} / 3줄: {sc_line3}")
+
+        # ── 최종 워딩 결정 ──
+        final_l1, final_l2, final_l3 = sc_line1, sc_line2, sc_line3
+        wording_src = "original"
+        if "sc_ai_result" in st.session_state and "sc_wording_choice" in st.session_state:
+            ai = st.session_state["sc_ai_result"]
+            choice = st.session_state["sc_wording_choice"]
+            if choice == "AI 제안 A (임팩트)":
+                va = ai["variantA"]
+                final_l1, final_l2, final_l3 = va["line1"], va["line2"], va["line3"]
+                wording_src = "ai_a"
+            elif choice == "AI 제안 B (설득력)":
+                vb = ai["variantB"]
+                final_l1, final_l2, final_l3 = vb["line1"], vb["line2"], vb["line3"]
+                wording_src = "ai_b"
+
+        # ── 디자인 프리뷰 ──
+        st.subheader("5️⃣ 디자인 프리뷰")
+
+        sz = SHOWCARD_SIZES[sc_size]
+        w_mm, h_mm = sz["w"], 65
+        scale = 3
+        w_px, h_px = w_mm * scale, h_mm * scale
+
+        svg_a = _gen_design_a(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3)
+        svg_b = _gen_design_b(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3)
+        svg_c = _gen_design_c(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3)
+
+        design_col1, design_col2, design_col3 = st.columns(3)
+        with design_col1:
+            st.markdown("**A. 클래식**")
+            st.markdown(svg_a, unsafe_allow_html=True)
+        with design_col2:
+            st.markdown("**B. 모던**")
+            st.markdown(svg_b, unsafe_allow_html=True)
+        with design_col3:
+            st.markdown("**C. 미니멀**")
+            st.markdown(svg_c, unsafe_allow_html=True)
+
+        sc_design = st.radio("디자인 선택", ["A. 클래식", "B. 모던", "C. 미니멀"], horizontal=True, key="sc_design_choice")
+        design_idx = {"A. 클래식": 0, "B. 모던": 1, "C. 미니멀": 2}[sc_design]
+        selected_svg = [svg_a, svg_b, svg_c][design_idx]
+
+        # ── 다운로드 ──
+        st.subheader("6️⃣ 다운로드")
+
+        pdf_bytes = _svg_to_pdf_bytes(selected_svg, w_mm, h_mm)
+        design_label = ["classic", "modern", "minimal"][design_idx]
+        filename = f"showcard_{sc_product}_{sc_size}_{design_label}.pdf"
+
+        dl_col1, dl_col2 = st.columns(2)
+        with dl_col1:
+            if pdf_bytes:
+                st.download_button(
+                    "📥 PDF 다운로드 (인쇄용)",
+                    data=pdf_bytes,
+                    file_name=filename,
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="sc_pdf_dl",
+                )
+            else:
+                st.warning("PDF 생성 라이브러리 없음. `pip install cairosvg` 또는 `pip install svglib reportlab` 설치 필요")
+
+        with dl_col2:
+            st.download_button(
+                "📥 SVG 다운로드",
+                data=selected_svg,
+                file_name=filename.replace(".pdf", ".svg"),
+                mime="image/svg+xml",
+                use_container_width=True,
+                key="sc_svg_dl",
+            )
+
+        # 이력 저장
+        if st.button("💾 이력 저장 & 다운로드 기록", key="sc_save_history", use_container_width=True):
+            try:
+                save_showcard({
+                    "product_name": sc_product,
+                    "product_id": p_info.get("product_id"),
+                    "category": category,
+                    "badge_type": sc_badge,
+                    "appeal_text": final_l1,
+                    "wording_line1": final_l1,
+                    "wording_line2": final_l2,
+                    "wording_line3": final_l3,
+                    "wording_source": wording_src,
+                    "size_class": sc_size,
+                    "card_width_mm": w_mm,
+                    "card_height_mm": h_mm,
+                    "bg_color": sc_color,
+                    "selected_design": design_idx + 1,
+                })
+                st.success("이력 저장 완료!")
+            except Exception as e:
+                st.error(f"저장 실패: {e}")
+
+    # ── 제작 이력 ──
+    st.markdown("---")
+    st.subheader("📋 제작 이력")
+    history = get_showcard_history(30)
+    if history:
+        design_names = {1: "클래식", 2: "모던", 3: "미니멀"}
+        hist_data = []
+        for h in history:
+            hist_data.append({
+                "제품명": h.get("product_name", ""),
+                "사이즈": h.get("size_class", ""),
+                "뱃지": h.get("badge_type", ""),
+                "디자인": design_names.get(h.get("selected_design"), ""),
+                "워딩1": h.get("wording_line1", ""),
+                "워딩2": h.get("wording_line2", ""),
+                "워딩3": h.get("wording_line3", ""),
+                "제작일": pd.to_datetime(h.get("created_at", "")).strftime("%Y-%m-%d %H:%M") if h.get("created_at") else "",
+            })
+        st.dataframe(pd.DataFrame(hist_data), use_container_width=True, hide_index=True)
+    else:
+        st.info("아직 제작 이력이 없습니다.")

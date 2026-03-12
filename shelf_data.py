@@ -1213,3 +1213,40 @@ def fetch_sales_for_placement_history(
         "sale_count": len(product_items),
         "days": days,
     }
+
+
+# ──────────────────────────────────────
+# 쇼카드 이력 관리 (Supabase showcards 테이블)
+# ──────────────────────────────────────
+
+def get_showcard_history(limit: int = 50) -> List[Dict]:
+    sb = _get_sb()
+    if not sb:
+        return []
+    try:
+        res = sb.table("showcards").select("*").order("created_at", desc=True).limit(limit).execute()
+        return res.data or []
+    except Exception:
+        return []
+
+
+def save_showcard(data: Dict) -> Optional[Dict]:
+    sb = _get_sb()
+    if not sb:
+        return None
+    try:
+        res = sb.table("showcards").insert(data).execute()
+        return res.data[0] if res.data else None
+    except Exception as e:
+        raise e
+
+
+def get_showcard_by_id(showcard_id: str) -> Optional[Dict]:
+    sb = _get_sb()
+    if not sb:
+        return None
+    try:
+        res = sb.table("showcards").select("*").eq("id", showcard_id).execute()
+        return res.data[0] if res.data else None
+    except Exception:
+        return None

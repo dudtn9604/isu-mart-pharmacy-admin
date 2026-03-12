@@ -49,3 +49,25 @@ CREATE POLICY "shelf_placements_read" ON shelf_placements FOR SELECT USING (true
 CREATE POLICY "shelf_placements_insert" ON shelf_placements FOR INSERT WITH CHECK (true);
 CREATE POLICY "shelf_placements_update" ON shelf_placements FOR UPDATE USING (true);
 CREATE POLICY "fixture_positions_read" ON fixture_positions FOR SELECT USING (true);
+
+-- 쇼카드 제작 이력
+CREATE TABLE IF NOT EXISTS showcards (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  product_name TEXT NOT NULL,
+  product_id UUID,
+  category TEXT,
+  badge_type TEXT,
+  appeal_text TEXT,
+  wording_line1 TEXT,
+  wording_line2 TEXT,
+  wording_line3 TEXT,
+  wording_source TEXT,
+  size_class TEXT,
+  card_width_mm NUMERIC,
+  card_height_mm NUMERIC DEFAULT 65,
+  bg_color TEXT,
+  selected_design INTEGER,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE showcards ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "showcards_all" ON showcards FOR ALL USING (true);
