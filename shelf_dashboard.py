@@ -2724,8 +2724,10 @@ elif menu == "🛒 교차판매 분석":
         )
 
     # ── 캐시된 바스켓 분석 ──
+    _BASKET_CACHE_VER = "v2_subcategory"
+
     @st.cache_data(ttl=3600)
-    def _cached_basket_analysis(d_from: str, d_to: str):
+    def _cached_basket_analysis(d_from: str, d_to: str, _ver: str = ""):
         items = prepare_basket_data(d_from, d_to)
         if items.empty:
             return items, pd.DataFrame(), pd.DataFrame()
@@ -2735,7 +2737,7 @@ elif menu == "🛒 교차판매 분석":
 
     with st.spinner("주문 데이터 분석 중..."):
         items_df, product_cooc, category_cooc = _cached_basket_analysis(
-            str(cs_date_from), str(cs_date_to)
+            str(cs_date_from), str(cs_date_to), _ver=_BASKET_CACHE_VER
         )
 
     if items_df.empty:
