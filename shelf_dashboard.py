@@ -3695,8 +3695,10 @@ elif menu == "🏷️ 쇼카드 제작":
             from reportlab.lib.colors import HexColor
             font_name, _ = _register_korean_font()
             buf = BytesIO()
-            pw, ph = w_mm * rl_mm, h_mm * rl_mm
+            BLEED = 3  # mm 여백 (카드 주변)
+            pw, ph = (w_mm + BLEED * 2) * rl_mm, (h_mm + BLEED * 2) * rl_mm
             c = rl_canvas.Canvas(buf, pagesize=(pw, ph))
+            ox, oy = BLEED * rl_mm, BLEED * rl_mm  # 카드 시작 오프셋
 
             # ── 헬퍼 ──
             def mm(v):
@@ -3704,20 +3706,24 @@ elif menu == "🏷️ 쇼카드 제작":
             def hc(h):
                 try: return HexColor(h)
                 except Exception: return HexColor("#888888")
+            # 카드 영역 크기 (오프셋 제외)
+            cw, ch = w_mm * rl_mm, h_mm * rl_mm
             def py(y_mm):
-                """상단 기준 y(mm) → reportlab 좌하단 기준 y"""
-                return ph - y_mm * rl_mm
-            def top_round_rect(x, y_bot, w, h, r, fill_color):
-                """상단만 라운드, 하단 직각인 사각형 (reportlab 좌표계)"""
+                """카드 상단 기준 y(mm) → reportlab 좌하단 기준 y (오프셋 포함)"""
+                return oy + ch - y_mm * rl_mm
+            def top_round_rect(x_rel, y_bot_rel, w, h, r, fill_color):
+                """상단만 라운드, 하단 직각 (카드 내부 상대좌표, ox/oy 자동 적용)"""
                 c.setFillColor(hc(fill_color))
                 p = c.beginPath()
-                x2, yt = x + w, y_bot + h
-                p.moveTo(x, y_bot)
+                x = ox + x_rel
+                yb = oy + y_bot_rel
+                x2, yt = x + w, yb + h
+                p.moveTo(x, yb)
                 p.lineTo(x, yt - r)
                 p.curveTo(x, yt, x, yt, x + r, yt)       # 좌상단 라운드
                 p.lineTo(x2 - r, yt)
                 p.curveTo(x2, yt, x2, yt, x2, yt - r)    # 우상단 라운드
-                p.lineTo(x2, y_bot)
+                p.lineTo(x2, yb)
                 p.close()
                 c.drawPath(p, fill=1, stroke=0)
             def draw_text(text, x_mm, y_mm, fs_pt, fill, anchor="middle", opacity=1.0):
@@ -3729,10 +3735,11 @@ elif menu == "🏷️ 쇼카드 제작":
                 c.setFillColor(hc(fill))
                 c.setFont(font_name, fs_pt)
                 _py = py(y_mm)
+                _px = ox + mm(x_mm)
                 if anchor == "middle":
-                    c.drawCentredString(mm(x_mm), _py, text)
+                    c.drawCentredString(_px, _py, text)
                 else:
-                    c.drawString(mm(x_mm), _py, text)
+                    c.drawString(_px, _py, text)
                 if opacity < 1.0:
                     c.restoreState()
 
@@ -3788,13 +3795,13 @@ elif menu == "🏷️ 쇼카드 제작":
                 bc = bot_color or bg
                 tc = top_color or "#FFFFFF"
                 # 전체 배경 (상단 라운드, 하단 직각)
-                top_round_rect(0, 0, pw, ph, mm(r), bc)
+                top_round_rect(0, 0, cw, ch, mm(r), bc)
                 # 상단 헤더 (상단 라운드, 하단 직각)
-                top_round_rect(0, py(hdr_h), pw, mm(hdr_h), mm(r), tc)
+                top_round_rect(0, ch - mm(hdr_h), cw, mm(hdr_h), mm(r), tc)
                 body_fill = "#333" if _is_light(bc) else "#FFFFFF"
                 top_fill = "#333" if _is_light(tc) else "#FFFFFF"
             else:
-                top_round_rect(0, 0, pw, ph, mm(r), bg)
+                top_round_rect(0, 0, cw, ch, mm(r), bg)
                 body_fill = "#FFFFFF"
                 top_fill = "#FFFFFF"
 
@@ -3808,12 +3815,12 @@ elif menu == "🏷️ 쇼카드 제작":
                 bx_mm, by_mm = pad_lr, 2.0
                 if design == "B":
                     c.saveState(); c.setFillAlpha(0.85); c.setFillColor(hc(bc))
-                    c.roundRect(mm(bx_mm), py(by_mm + BH), mm(bw), mm(BH), mm(BR), fill=1, stroke=0)
+                    c.roundRect(ox + mm(bx_mm), py(by_mm + BH), mm(bw), mm(BH), mm(BR), fill=1, stroke=0)
                     c.restoreState()
                     bfill = body_fill
                 else:
                     c.saveState(); c.setFillAlpha(0.35); c.setFillColor(hc("#000000"))
-                    c.roundRect(mm(bx_mm), py(by_mm + BH), mm(bw), mm(BH), mm(BR), fill=1, stroke=0)
+                    c.roundRect(ox + mm(bx_mm), py(by_mm + BH), mm(bw), mm(BH), mm(BR), fill=1, stroke=0)
                     c.restoreState()
                     bfill = "#FFFFFF"
                 draw_text(btxt, bx_mm + bw/2, by_mm + BH * 0.72, bpt, bfill)
@@ -3823,7 +3830,7 @@ elif menu == "🏷️ 쇼카드 제작":
                     bw2 = len(bt2) * BFS * 0.55 + BFS * 1.6
                     bx2 = bx_mm + bw + 2.0
                     c.saveState(); c.setFillAlpha(0.25); c.setFillColor(hc("#FFFFFF"))
-                    c.roundRect(mm(bx2), py(by_mm + BH), mm(bw2), mm(BH), mm(BR), fill=1, stroke=0)
+                    c.roundRect(ox + mm(bx2), py(by_mm + BH), mm(bw2), mm(BH), mm(BR), fill=1, stroke=0)
                     c.restoreState()
                     draw_text(bt2, bx2 + bw2/2, by_mm + BH * 0.72, bpt, "#FFFFFF")
 
