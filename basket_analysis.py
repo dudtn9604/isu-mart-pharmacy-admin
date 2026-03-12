@@ -356,16 +356,18 @@ def get_category_heatmap_data(
     lift/confidence: 카테고리 레벨 동시출현 기반 (min_count 필터 적용)
     """
     if metric == "count":
+        # 전체 카테고리 목록 (items_df에 존재하는 모든 카테고리)
+        all_categories = sorted(items_df["erp_category"].dropna().unique().tolist())
+
         # 상품 쌍 기반 집계 → 하단 상세 테이블과 동일한 기준
         cat_counts = _compute_category_product_count(items_df, min_count=min_count)
-        if cat_counts.empty:
-            return pd.DataFrame()
 
-        categories = sorted(set(cat_counts["cat_a"].tolist() + cat_counts["cat_b"].tolist()))
-        matrix = pd.DataFrame(0, index=categories, columns=categories)
-        for _, r in cat_counts.iterrows():
-            matrix.loc[r["cat_a"], r["cat_b"]] = r["count"]
-            matrix.loc[r["cat_b"], r["cat_a"]] = r["count"]
+        matrix = pd.DataFrame(0, index=all_categories, columns=all_categories)
+        if not cat_counts.empty:
+            for _, r in cat_counts.iterrows():
+                if r["cat_a"] in matrix.index and r["cat_b"] in matrix.columns:
+                    matrix.loc[r["cat_a"], r["cat_b"]] = r["count"]
+                    matrix.loc[r["cat_b"], r["cat_a"]] = r["count"]
         return matrix
 
     # lift / confidence: 카테고리 레벨 동시출현
