@@ -4063,6 +4063,7 @@ elif menu == "🏪 포레온 시뮬레이션":
           addText(g, fx + fw/2, fy + fh + 14, Math.round(fac.w) + ' x ' + Math.round(fac.h) + ' mm', 9, '#999');
         }}
         g.addEventListener('mousedown', e => onFacilityMouseDown(e, fac));
+        g.addEventListener('dblclick', e => {{ e.stopPropagation(); onFacilityDblClick(fac); }});
         svg.appendChild(g);
       }});
 
@@ -4292,6 +4293,15 @@ elif menu == "🏪 포레온 시뮬레이션":
         window.parent.location.hash = 'foreon-detail-' + fx.id;
         window.parent.location.reload();
       }}).catch(()=>{{}});
+    }}
+
+    function onFacilityDblClick(fac) {{
+      const newName = prompt('시설물 이름을 입력하세요:', fac.label || fac.name);
+      if (newName !== null && newName.trim() !== '') {{
+        saveUndo();
+        fac.label = newName.trim();
+        render();
+      }}
     }}
 
     function addFixture(type) {{
