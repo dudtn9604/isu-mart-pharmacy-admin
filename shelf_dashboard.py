@@ -4211,11 +4211,14 @@ elif menu == "🏷️ 쇼카드 제작":
                     "wording_line1": final_l1,
                     "wording_line2": final_l2,
                     "wording_line3": final_l3,
+                    "header_text": final_header,
                     "wording_source": wording_src,
                     "size_class": sc_size,
                     "card_width_mm": w_mm,
                     "card_height_mm": h_mm,
                     "bg_color": sc_color,
+                    "top_color": sc_top_color if design_idx == 1 else None,
+                    "bot_color": sc_bot_color if design_idx == 1 else None,
                     "selected_design": design_idx + 1,
                 })
                 st.success("이력 저장 완료!")
@@ -4228,19 +4231,63 @@ elif menu == "🏷️ 쇼카드 제작":
     history = get_showcard_history(30)
     if history:
         design_names = {1: "단색 배경", 2: "상하단 컬러 구분"}
-        hist_data = []
-        for h in history:
-            hist_data.append({
-                "제품명": h.get("product_name", ""),
-                "사이즈": h.get("size_class", ""),
-                "뱃지": h.get("badge_type", ""),
-                "디자인": design_names.get(h.get("selected_design"), ""),
-                "워딩1": h.get("wording_line1", ""),
-                "워딩2": h.get("wording_line2", ""),
-                "워딩3": h.get("wording_line3", ""),
-                "제작일": pd.to_datetime(h.get("created_at", "")).strftime("%Y-%m-%d %H:%M") if h.get("created_at") else "",
-            })
-        st.dataframe(pd.DataFrame(hist_data), use_container_width=True, hide_index=True)
+        for idx, h in enumerate(history):
+            _h_product = h.get("product_name", "")
+            _h_size = h.get("size_class", "")
+            _h_design = design_names.get(h.get("selected_design"), "?")
+            _h_date = ""
+            if h.get("created_at"):
+                try:
+                    _h_date = pd.to_datetime(h["created_at"]).strftime("%Y-%m-%d %H:%M")
+                except Exception:
+                    _h_date = str(h["created_at"])[:16]
+            with st.expander(f"**{_h_product}** | {_h_size} | {_h_design} | {_h_date}", expanded=False):
+                _hc1, _hc2 = st.columns([3, 1])
+                with _hc1:
+                    st.markdown(f"**뱃지**: {h.get('badge_type', '-')}  \n"
+                                f"**상단부**: {h.get('header_text', '') or '-'}  \n"
+                                f"**워딩1**: {h.get('wording_line1', '') or '-'}  \n"
+                                f"**워딩2**: {h.get('wording_line2', '') or '-'}  \n"
+                                f"**워딩3**: {h.get('wording_line3', '') or '-'}")
+                with _hc2:
+                    # PDF 재생성 & 다운로드
+                    _hw = h.get("card_width_mm", 70)
+                    _hh = h.get("card_height_mm", 85)
+                    _hbg = h.get("bg_color", "#FF6B35")
+                    _hbadge = h.get("badge_type", "추천")
+                    _hl1 = h.get("wording_line1", "")
+                    _hl2 = h.get("wording_line2", "")
+                    _hl3 = h.get("wording_line3", "")
+                    _hheader = h.get("header_text", "")
+                    _htop = h.get("top_color")
+                    _hbot = h.get("bot_color")
+                    _hdesign_idx = h.get("selected_design", 1)
+                    _hsize_key = h.get("size_class", "S2")
+                    _h_spec = st.session_state.get("sc_specs", DEFAULT_SPECS).get(_hsize_key)
+                    if not _h_spec:
+                        _h_spec = DEFAULT_SPECS.get(_hsize_key, DEFAULT_SPECS.get("S2"))
+                    _h_common = st.session_state.get("sc_specs", DEFAULT_SPECS).get("_common", DEFAULT_COMMON)
+                    _h_dtype = "A" if _hdesign_idx == 1 else "B"
+                    try:
+                        _h_pdf = _gen_pdf_bytes(
+                            _h_dtype, _hw, _hh, _hbg, _hbadge,
+                            _hl1, _hl2, _hl3, _h_spec, _h_common,
+                            header_text=_hheader, top_color=_htop, bot_color=_hbot,
+                        )
+                    except Exception:
+                        _h_pdf = None
+                    if _h_pdf:
+                        _dl_label = "solid" if _hdesign_idx == 1 else "split"
+                        st.download_button(
+                            "📥 PDF",
+                            data=_h_pdf,
+                            file_name=f"showcard_{_h_product}_{_hsize_key}_{_dl_label}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True,
+                            key=f"hist_pdf_{idx}",
+                        )
+                    else:
+                        st.caption("PDF 생성 불가")
     else:
         st.info("아직 제작 이력이 없습니다.")
 
