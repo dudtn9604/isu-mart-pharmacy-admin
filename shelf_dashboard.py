@@ -3117,9 +3117,11 @@ elif menu == "🏷️ 쇼카드 제작":
     }
 
     DEFAULT_SIZE_SPEC = {
+        "card_width_mm": 90,
         "card_height_mm": 65,
         "padding_lr_mm": 3.0,
         "padding_top_mm": 2.5,
+        "padding_bottom_mm": 2.5,
         "badge_height_mm": 5.0,
         "badge_radius_mm": 2.5,
         "badge_font_pt": 7.0,
@@ -3822,6 +3824,14 @@ elif menu == "🏪 포레온 시뮬레이션":
     FOREON_W = 27323
     FOREON_H = 7487
 
+    # 포레온 전용 매대 설정 (D 타입 추가)
+    FOREON_SHELF_CONFIGS = {
+        "A": {"name": "기본매대", "width": 90.0, "tiers": [25, 25, 25, 25, 999]},
+        "B": {"name": "연결매대", "width": 93.0, "tiers": [25, 25, 25, 25, 25]},
+        "C": {"name": "엔드캡매대", "width": 63.6, "tiers": [25, 25, 25, 25, 25]},
+        "D": {"name": "벽면매대", "width": 90.0, "tiers": [25, 25, 25, 25, 25, 25]},
+    }
+
     # ── session_state 초기화 (저장된 레이아웃 파일 우선) ──
     if "foreon_fixtures" not in st.session_state:
         _saved_foreon = None
@@ -3920,13 +3930,14 @@ elif menu == "🏪 포레온 시뮬레이션":
     _na = len([f for f in _fx_list if f["type"] == "A"])
     _nb = len([f for f in _fx_list if f["type"] == "B"])
     _nc = len([f for f in _fx_list if f["type"] == "C"])
-    _total_fx = _na + _nb + _nc
-    _total_shelves = _total_fx * 5
+    _nd = len([f for f in _fx_list if f["type"] == "D"])
+    _total_fx = _na + _nb + _nc + _nd
+    _total_shelves = (_na + _nb + _nc) * 5 + _nd * 6
 
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("매장 면적", f"{foreon_area:.1f} m² ({foreon_pyeong:.1f}평)")
     c2.metric("규격 (W×H)", f"{FOREON_W/1000:.1f} × {FOREON_H/1000:.1f} m")
-    c3.metric("총 매대", f"{_total_fx}대", help=f"A:{_na} B:{_nb} C:{_nc}")
+    c3.metric("총 매대", f"{_total_fx}대", help=f"A:{_na} B:{_nb} C:{_nc} D:{_nd}")
     c4.metric("총 선반 (단면)", f"{_total_shelves}개")
     c5.metric("배정 상품", f"{len(st.session_state.foreon_placements)}건")
 
@@ -3945,6 +3956,7 @@ elif menu == "🏪 포레온 시뮬레이션":
         <button onclick="addFixture('A')" style="padding:4px 10px;border:1px solid #4A90D9;color:#4A90D9;border-radius:4px;background:#fff;cursor:pointer;">+A</button>
         <button onclick="addFixture('B')" style="padding:4px 10px;border:1px solid #50C878;color:#50C878;border-radius:4px;background:#fff;cursor:pointer;">+B</button>
         <button onclick="addFixture('C')" style="padding:4px 10px;border:1px solid #FF8C00;color:#FF8C00;border-radius:4px;background:#fff;cursor:pointer;">+C</button>
+        <button onclick="addFixture('D')" style="padding:4px 10px;border:1px solid #9B59B6;color:#9B59B6;border-radius:4px;background:#fff;cursor:pointer;">+D</button>
         <span style="width:1px;height:24px;background:#ddd;margin:0 2px;"></span>
         <select id="addFac" onchange="addFacilityFromSelect(this)" style="padding:3px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
           <option value="">+시설물</option>
@@ -3984,6 +3996,7 @@ elif menu == "🏪 포레온 시뮬레이션":
       A: {{ name:'기본매대', w:900, d:360, color:'#4A90D9', light:'rgba(74,144,217,0.25)' }},
       B: {{ name:'연결매대', w:930, d:360, color:'#50C878', light:'rgba(80,200,120,0.25)' }},
       C: {{ name:'엔드캡매대', w:636, d:360, color:'#FF8C00', light:'rgba(255,140,0,0.25)' }},
+      D: {{ name:'벽면매대', w:900, d:360, color:'#9B59B6', light:'rgba(155,89,182,0.25)' }},
     }};
     const FACILITY_TYPES = {{
       '입구':{{w:2500,h:500,c:'#DDD',border:'#999'}},
@@ -4379,7 +4392,8 @@ elif menu == "🏪 포레온 시뮬레이션":
         const a=fixtures.filter(f=>f.type==='A').length;
         const b=fixtures.filter(f=>f.type==='B').length;
         const c=fixtures.filter(f=>f.type==='C').length;
-        let msg='A:'+a+' B:'+b+' C:'+c+' (총 '+(a+b+c)+'대)';
+        const d=fixtures.filter(f=>f.type==='D').length;
+        let msg='A:'+a+' B:'+b+' C:'+c+' D:'+d+' (총 '+(a+b+c+d)+'대)';
         if(selection.length>0) msg+=' | 선택: '+selection.length+'개';
         document.getElementById('statusText').textContent=msg;
       }}
@@ -4472,7 +4486,7 @@ elif menu == "🏪 포레온 시뮬레이션":
         # 선택된 매대 정보
         _stype = _sel_fx.split("-")[0]
         _sno = int(_sel_fx.split("-")[1]) if "-" in _sel_fx else 1
-        _cfg = SHELF_CONFIGS.get(_stype, {})
+        _cfg = FOREON_SHELF_CONFIGS.get(_stype, SHELF_CONFIGS.get(_stype, {}))
         _n_tiers = len(_cfg.get("tiers", [5]))
         _shelf_width_cm = _cfg.get("width", 90)
         _tier_heights = _cfg.get("tiers", [25, 25, 25, 25, 25])
