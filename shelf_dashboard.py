@@ -3915,6 +3915,7 @@ elif menu == "🏪 포레온 시뮬레이션":
     st.markdown("## Step 1. 매장 규격 & 매대 현황")
 
     foreon_area = FOREON_W * FOREON_H / 1_000_000
+    foreon_pyeong = foreon_area / 3.3058
     _fx_list = st.session_state.foreon_fixtures
     _na = len([f for f in _fx_list if f["type"] == "A"])
     _nb = len([f for f in _fx_list if f["type"] == "B"])
@@ -3923,7 +3924,7 @@ elif menu == "🏪 포레온 시뮬레이션":
     _total_shelves = _total_fx * 5
 
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("매장 면적", f"{foreon_area:.1f} m²")
+    c1.metric("매장 면적", f"{foreon_area:.1f} m² ({foreon_pyeong:.1f}평)")
     c2.metric("규격 (W×H)", f"{FOREON_W/1000:.1f} × {FOREON_H/1000:.1f} m")
     c3.metric("총 매대", f"{_total_fx}대", help=f"A:{_na} B:{_nb} C:{_nc}")
     c4.metric("총 선반 (단면)", f"{_total_shelves}개")
