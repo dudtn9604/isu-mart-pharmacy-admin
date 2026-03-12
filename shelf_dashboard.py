@@ -508,11 +508,7 @@ if menu == "🗺️ 매장 배치도":
         const fw = fac.w * scale, fh = fac.h * scale;
         const [fx, fy] = toSVG(fac.x, fac.y);
         addRect(g, fx, fy, fw, fh, isSel ? ft.border : '#aaa', isSel ? 3 : 1, ft.c);
-        const facNameSize = Math.max(8, 10 * scale / 0.065);
-        const pyeong = (fac.w * fac.h) / 1000000 / 3.3058;
-        const pyeongStr = pyeong.toFixed(1) + '평';
-        addText(g, fx + fw / 2, fy + fh / 2 - facNameSize * 0.6, fac.label || fac.name, facNameSize, '#555');
-        addText(g, fx + fw / 2, fy + fh / 2 + facNameSize * 0.7, pyeongStr, Math.max(7, facNameSize * 0.75), '#888');
+        addText(g, fx + fw / 2, fy + fh / 2, fac.label || fac.name, Math.max(8, 10 * scale / 0.065), '#555');
         // 리사이즈 핸들 (선택된 시설물, 단일 선택 시)
         if (isSel && selection.length === 1) {{
           const hs = HANDLE_SIZE;
