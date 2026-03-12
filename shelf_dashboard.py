@@ -3167,48 +3167,30 @@ elif menu == "🏷️ 쇼카드 제작":
                 f'{"".join(lines)}'
                 f'</svg>')
 
-    def _gen_design_b(w_px, h_px, bg, badge, l1, l2, l3):
-        """디자인 B: 상단 컬러 밴드(1/6) + 하단 화이트(5/6)"""
+    def _gen_design_b(w_px, h_px, bg, badge, l1, l2, l3, top_color=None, bot_color=None):
+        """디자인 B: 상하단 컬러 구분 — 상단(1/6) + 하단(5/6) 각각 색상 지정"""
         r, pad = 12, 10
         top_h = round(h_px / 6)
         bot_h = h_px - top_h
+        tc = top_color or "#FFFFFF"
+        bc = bot_color or bg
+        # 상단 텍스트 색상: 밝은 배경이면 어둡게, 어두운 배경이면 밝게
+        def _is_light(hex_color):
+            h = hex_color.lstrip("#")
+            if len(h) == 3:
+                h = "".join(c*2 for c in h)
+            try:
+                r_, g_, b_ = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+                return (r_ * 299 + g_ * 587 + b_ * 114) / 1000 > 128
+            except Exception:
+                return True
+        top_text_fill = "#333" if _is_light(tc) else "#FFFFFF"
+        bot_text_fill = "#333" if _is_light(bc) else "#FFFFFF"
         # 폰트 크기
         fs3 = _auto_fit(l3, w_px - pad*2, 26, 12)
         fs1 = _auto_fit(l1 or "", w_px - pad*2, 11, 7)
         fs2 = max(fs1 - 1, 7)
-        # 배지 (상단 컬러 밴드 안)
-        if badge == "업그레이드":
-            badge_el = _badge_svg_upgrade(w_px, pad * 0.6)
-        else:
-            badge_el = _badge_svg(badge, pad, pad * 0.6, w_px)
-        # 하단 화이트 영역: 설명 + 헤드라인
-        lines = []
-        desc_y = top_h + bot_h * 0.22
-        if l1:
-            lines.append(f'<text x="{w_px/2}" y="{desc_y}" text-anchor="middle" fill="#555" '
-                         f'font-size="{fs1}" font-family="sans-serif">{_escape_xml(l1)}</text>')
-        if l2:
-            lines.append(f'<text x="{w_px/2}" y="{desc_y + fs1 * 1.5}" text-anchor="middle" fill="#777" '
-                         f'font-size="{fs2}" font-family="sans-serif">{_escape_xml(l2)}</text>')
-        lines.append(f'<text x="{w_px/2}" y="{top_h + bot_h * 0.72}" text-anchor="middle" fill="{bg}" '
-                     f'font-size="{fs3}" font-weight="900" font-family="sans-serif">{_escape_xml(l3)}</text>')
-        return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w_px} {h_px}" width="{w_px}" height="{h_px}">'
-                f'<rect width="{w_px}" height="{h_px}" rx="{r}" fill="#FFFFFF"/>'
-                f'<rect width="{w_px}" height="{top_h + r}" rx="{r}" fill="{bg}"/>'
-                f'{badge_el}'
-                f'{"".join(lines)}'
-                f'</svg>')
-
-    def _gen_design_c(w_px, h_px, bg, badge, l1, l2, l3):
-        """디자인 C: 상단 화이트(1/6) + 하단 컬러(5/6)"""
-        r, pad = 12, 10
-        top_h = round(h_px / 6)
-        bot_h = h_px - top_h
-        # 폰트 크기
-        fs3 = _auto_fit(l3, w_px - pad*2, 26, 12)
-        fs1 = _auto_fit(l1 or "", w_px - pad*2, 11, 7)
-        fs2 = max(fs1 - 1, 7)
-        # 배지 (흰색 영역에 컬러 배지)
+        # 배지 (상단 영역 안)
         badge_el = ""
         if badge != "none":
             fs_b = max(8, min(10, w_px * 0.05))
@@ -3220,24 +3202,24 @@ elif menu == "🏷️ 쇼카드 제작":
             bw = len(btxt) * char_w + fs_b * 1.6
             bh = fs_b * 2
             br = bh / 2
-            badge_el = (f'<rect x="{pad}" y="{pad * 0.6}" width="{bw}" height="{bh}" rx="{br}" fill="{bg}"/>'
-                        f'<text x="{pad + bw/2}" y="{pad * 0.6 + bh*0.72}" text-anchor="middle" fill="white" '
+            # 배지 배경은 하단 색상 사용 (대비)
+            badge_el = (f'<rect x="{pad}" y="{pad * 0.6}" width="{bw}" height="{bh}" rx="{br}" fill="{bc}" opacity="0.85"/>'
+                        f'<text x="{pad + bw/2}" y="{pad * 0.6 + bh*0.72}" text-anchor="middle" fill="{bot_text_fill}" '
                         f'font-size="{fs_b}" font-weight="700" font-family="sans-serif">{_escape_xml(btxt)}</text>')
-        # 하단 컬러 영역: 설명 + 헤드라인
+        # 하단 영역: 설명 + 헤드라인
         lines = []
         desc_y = top_h + bot_h * 0.18
         if l1:
-            lines.append(f'<text x="{w_px/2}" y="{desc_y}" text-anchor="middle" fill="white" '
+            lines.append(f'<text x="{w_px/2}" y="{desc_y}" text-anchor="middle" fill="{bot_text_fill}" '
                          f'font-size="{fs1}" font-family="sans-serif" opacity="0.92">{_escape_xml(l1)}</text>')
         if l2:
-            lines.append(f'<text x="{w_px/2}" y="{desc_y + fs1 * 1.5}" text-anchor="middle" fill="white" '
+            lines.append(f'<text x="{w_px/2}" y="{desc_y + fs1 * 1.5}" text-anchor="middle" fill="{bot_text_fill}" '
                          f'font-size="{fs2}" font-family="sans-serif" opacity="0.85">{_escape_xml(l2)}</text>')
-        lines.append(f'<text x="{w_px/2}" y="{top_h + bot_h * 0.72}" text-anchor="middle" fill="white" '
+        lines.append(f'<text x="{w_px/2}" y="{top_h + bot_h * 0.72}" text-anchor="middle" fill="{bot_text_fill}" '
                      f'font-size="{fs3}" font-weight="900" font-family="sans-serif">{_escape_xml(l3)}</text>')
         return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w_px} {h_px}" width="{w_px}" height="{h_px}">'
-                f'<rect width="{w_px}" height="{h_px}" rx="{r}" fill="{bg}"/>'
-                f'<rect width="{w_px}" height="{top_h + r}" rx="{r}" fill="#FFFFFF"/>'
-                f'<rect y="{top_h}" width="{w_px}" height="{r}" fill="{bg}"/>'
+                f'<rect width="{w_px}" height="{h_px}" rx="{r}" fill="{bc}"/>'
+                f'<rect width="{w_px}" height="{top_h + r}" rx="{r}" fill="{tc}"/>'
                 f'{badge_el}'
                 f'{"".join(lines)}'
                 f'</svg>')
@@ -3324,7 +3306,7 @@ elif menu == "🏷️ 쇼카드 제작":
 
         # ── 사이즈 & 색상 ──
         st.subheader("2️⃣ 사이즈 & 색상")
-        col_sz, col_clr = st.columns(2)
+        col_sz, col_clr1, col_clr2, col_clr3 = st.columns([2, 1, 1, 1])
 
         with col_sz:
             rec_size = _recommend_size(dim.get("width", 7)) if dim.get("width") else "M"
@@ -3337,9 +3319,13 @@ elif menu == "🏷️ 쇼카드 제작":
                 key="sc_size",
             )
 
-        with col_clr:
-            default_color = _get_showcard_color(category)
-            sc_color = st.color_picker("배경 색상", default_color, key="sc_color")
+        default_color = _get_showcard_color(category)
+        with col_clr1:
+            sc_color = st.color_picker("단색 배경", default_color, key="sc_color")
+        with col_clr2:
+            sc_top_color = st.color_picker("상단 색상", "#FFFFFF", key="sc_top_color")
+        with col_clr3:
+            sc_bot_color = st.color_picker("하단 색상", default_color, key="sc_bot_color")
 
         # ── 뱃지 ──
         st.subheader("3️⃣ 뱃지 타입")
@@ -3449,29 +3435,25 @@ elif menu == "🏷️ 쇼카드 제작":
         w_px, h_px = w_mm * scale, h_mm * scale
 
         svg_a = _gen_design_a(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3)
-        svg_b = _gen_design_b(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3)
-        svg_c = _gen_design_c(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3)
+        svg_b = _gen_design_b(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3, top_color=sc_top_color, bot_color=sc_bot_color)
 
-        design_col1, design_col2, design_col3 = st.columns(3)
+        design_col1, design_col2 = st.columns(2)
         with design_col1:
             st.markdown("**A. 단색 배경**")
             st.markdown(svg_a, unsafe_allow_html=True)
         with design_col2:
-            st.markdown("**B. 상단 컬러 + 하단 화이트**")
+            st.markdown("**B. 상하단 컬러 구분**")
             st.markdown(svg_b, unsafe_allow_html=True)
-        with design_col3:
-            st.markdown("**C. 상단 화이트 + 하단 컬러**")
-            st.markdown(svg_c, unsafe_allow_html=True)
 
-        sc_design = st.radio("디자인 선택", ["A. 단색 배경", "B. 상단 컬러", "C. 하단 컬러"], horizontal=True, key="sc_design_choice")
-        design_idx = {"A. 단색 배경": 0, "B. 상단 컬러": 1, "C. 하단 컬러": 2}[sc_design]
-        selected_svg = [svg_a, svg_b, svg_c][design_idx]
+        sc_design = st.radio("디자인 선택", ["A. 단색 배경", "B. 상하단 컬러 구분"], horizontal=True, key="sc_design_choice")
+        design_idx = {"A. 단색 배경": 0, "B. 상하단 컬러 구분": 1}[sc_design]
+        selected_svg = [svg_a, svg_b][design_idx]
 
         # ── 다운로드 ──
         st.subheader("6️⃣ 다운로드")
 
         pdf_bytes = _svg_to_pdf_bytes(selected_svg, w_mm, h_mm)
-        design_label = ["classic", "modern", "minimal"][design_idx]
+        design_label = ["solid", "split"][design_idx]
         filename = f"showcard_{sc_product}_{sc_size}_{design_label}.pdf"
 
         dl_col1, dl_col2 = st.columns(2)
@@ -3526,7 +3508,7 @@ elif menu == "🏷️ 쇼카드 제작":
     st.subheader("📋 제작 이력")
     history = get_showcard_history(30)
     if history:
-        design_names = {1: "클래식", 2: "모던", 3: "미니멀"}
+        design_names = {1: "단색 배경", 2: "상하단 컬러 구분"}
         hist_data = []
         for h in history:
             hist_data.append({
