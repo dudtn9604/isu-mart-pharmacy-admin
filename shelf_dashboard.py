@@ -3037,28 +3037,27 @@ elif menu == "🏷️ 쇼카드 제작":
     ]
 
     DEFAULT_COMMON = {
-        "corner_radius_mm": 2.5,
         "text_align": "left",
     }
 
     # ── PDF 규격 기반 기본 템플릿 (수정본 0312) ──
     _SHORT_BASE = {
         "card_width_mm": 70, "card_height_mm": 85,
-        "padding_lr_mm": 2.5, "padding_top_mm": 2.0, "padding_bottom_mm": 31.0,
+        "padding_lr_mm": 2.5, "padding_bottom_mm": 31.0,
         "header_height_mm": 12.5, "header_corner_mm": 10.0, "header_body_gap_mm": 9.7,
-        "line1_font_pt": 15.0, "line1_weight": "Regular", "line1_font_family": "sans-serif", "line1_y_pct": 29,
-        "line2_font_pt": 21.0, "line2_weight": "Regular", "line2_font_family": "sans-serif", "line2_y_pct": 56,
-        "line3_font_pt": 30.0, "line3_weight": "ExtraBold", "line3_font_family": "sans-serif", "line3_y_pct": 45,
-        "top_ratio_pct": 15,
+        "header_font_pt": 15.0, "header_font_weight": "Regular",
+        "line1_font_pt": 15.0, "line1_weight": "Regular", "line1_font_family": "sans-serif",
+        "line2_font_pt": 21.0, "line2_weight": "Regular", "line2_font_family": "sans-serif",
+        "line3_font_pt": 30.0, "line3_weight": "ExtraBold", "line3_font_family": "sans-serif",
     }
     _LONG_BASE = {
         "card_width_mm": 110, "card_height_mm": 78.5,
-        "padding_lr_mm": 3.0, "padding_top_mm": 2.0, "padding_bottom_mm": 31.0,
+        "padding_lr_mm": 3.0, "padding_bottom_mm": 31.0,
         "header_height_mm": 13.5, "header_corner_mm": 9.0, "header_body_gap_mm": 9.0,
-        "line1_font_pt": 15.0, "line1_weight": "Regular", "line1_font_family": "sans-serif", "line1_y_pct": 30,
-        "line2_font_pt": 20.0, "line2_weight": "Regular", "line2_font_family": "sans-serif", "line2_y_pct": 58,
-        "line3_font_pt": 36.0, "line3_weight": "ExtraBold", "line3_font_family": "sans-serif", "line3_y_pct": 45,
-        "top_ratio_pct": 17,
+        "header_font_pt": 15.0, "header_font_weight": "Regular",
+        "line1_font_pt": 15.0, "line1_weight": "Regular", "line1_font_family": "sans-serif",
+        "line2_font_pt": 20.0, "line2_weight": "Regular", "line2_font_family": "sans-serif",
+        "line3_font_pt": 36.0, "line3_weight": "ExtraBold", "line3_font_family": "sans-serif",
     }
 
     DEFAULT_SIZE_SPEC = dict(_LONG_BASE)  # 새 규격 추가 시 Long 기반 템플릿
@@ -3092,6 +3091,22 @@ elif menu == "🏷️ 쇼카드 제작":
                 del spec_dict[old_k]
         # badge_font_pt 제거 (더 이상 스펙에서 관리하지 않음)
         spec_dict.pop("badge_font_pt", None)
+        return spec_dict
+
+    # v2 → v3 마이그레이션
+    _V2_REMOVE_SIZE_FIELDS = {"line1_y_pct", "line2_y_pct", "line3_y_pct", "top_ratio_pct", "padding_top_mm"}
+
+    def _migrate_spec_v2_to_v3(spec_dict):
+        """v2 → v3: Y% 제거, header_font 추가, corner_radius 제거"""
+        if "_common" in spec_dict:
+            spec_dict["_common"].pop("corner_radius_mm", None)
+        size_keys = _get_size_keys(spec_dict)
+        for sz in size_keys:
+            if sz in spec_dict and isinstance(spec_dict[sz], dict):
+                for f in _V2_REMOVE_SIZE_FIELDS:
+                    spec_dict[sz].pop(f, None)
+                spec_dict[sz].setdefault("header_font_pt", 15.0)
+                spec_dict[sz].setdefault("header_font_weight", "Regular")
         return spec_dict
 
     # v1 → v2 마이그레이션
@@ -3134,33 +3149,39 @@ elif menu == "🏷️ 쇼카드 제작":
         except Exception:
             pass
         if _loaded_spec and isinstance(_loaded_spec, dict):
-            if "version" in _loaded_spec and _loaded_spec["version"] == 2:
-                # v2 구조: version 키 제거 후 사용
-                v2 = {k: v for k, v in _loaded_spec.items() if k != "version"}
+            ver = _loaded_spec.get("version", 1)
+            if ver >= 2:
+                # v2/v3 구조: version 키 제거 후 사용
+                v_data = {k: v for k, v in _loaded_spec.items() if k != "version"}
                 # 사이즈 키 목록 (동적)
-                size_keys = _get_size_keys(v2)
+                size_keys = _get_size_keys(v_data)
                 if not size_keys:
                     size_keys = ["S", "M", "L", "XL", "XXL"]
-                    v2["_size_order"] = size_keys
+                    v_data["_size_order"] = size_keys
                 # 각 사이즈 누락 키 보충 + badge→header 마이그레이션
                 for sz in size_keys:
-                    if sz not in v2:
-                        v2[sz] = dict(DEFAULT_SIZE_SPEC)
+                    if sz not in v_data:
+                        v_data[sz] = dict(DEFAULT_SIZE_SPEC)
                     else:
-                        _migrate_badge_fields(v2[sz])
-                        v2[sz] = {**DEFAULT_SIZE_SPEC, **v2[sz]}
-                if "_common" not in v2:
-                    v2["_common"] = dict(DEFAULT_COMMON)
+                        _migrate_badge_fields(v_data[sz])
+                        v_data[sz] = {**DEFAULT_SIZE_SPEC, **v_data[sz]}
+                if "_common" not in v_data:
+                    v_data["_common"] = dict(DEFAULT_COMMON)
                 else:
-                    v2["_common"] = {**DEFAULT_COMMON, **v2["_common"]}
-                if "_uniform" not in v2:
-                    v2["_uniform"] = True
-                if "_size_order" not in v2:
-                    v2["_size_order"] = size_keys
-                st.session_state["sc_specs"] = v2
+                    v_data["_common"] = {**DEFAULT_COMMON, **v_data["_common"]}
+                if "_uniform" not in v_data:
+                    v_data["_uniform"] = True
+                if "_size_order" not in v_data:
+                    v_data["_size_order"] = size_keys
+                # v2 → v3 마이그레이션 (v2인 경우)
+                if ver < 3:
+                    _migrate_spec_v2_to_v3(v_data)
+                st.session_state["sc_specs"] = v_data
             else:
-                # v1 → v2 마이그레이션
+                # v1 → v2 → v3 마이그레이션
                 migrated = _migrate_spec_v1_to_v2(_loaded_spec)
+                if migrated:
+                    _migrate_spec_v2_to_v3(migrated)
                 st.session_state["sc_specs"] = migrated if migrated else {k: (dict(v) if isinstance(v, dict) else v) for k, v in DEFAULT_SPECS.items()}
         else:
             import copy
@@ -3188,29 +3209,44 @@ elif menu == "🏷️ 쇼카드 제작":
         }
 
         def _render_size_spec_ui(sz, sp):
-            """사이즈별 규격 UI 렌더링"""
+            """사이즈별 규격 UI 렌더링 (v3: 카드기본/상단부/메인 3섹션)"""
             sfx = sz  # widget key 접미사
-            spec_c1, spec_c2 = st.columns(2)
-            with spec_c1:
-                st.markdown("**카드 기본**")
-                sp["card_width_mm"] = st.number_input("카드 가로 (mm)", 10, 300, int(sp.get("card_width_mm", 90)), key=f"sp_w_{sfx}")
-                sp["card_height_mm"] = st.number_input("카드 세로 (mm)", 10, 120, int(sp["card_height_mm"]), key=f"sp_h_{sfx}")
-                common["corner_radius_mm"] = st.number_input("모서리 라운드 (mm)", 0.0, 15.0, float(common["corner_radius_mm"]), 0.5, key=f"sp_cr_{sfx}")
-                sp["padding_lr_mm"] = st.number_input("좌우 여백 (mm)", 0.0, 15.0, float(sp["padding_lr_mm"]), 0.5, key=f"sp_plr_{sfx}")
-                sp["padding_top_mm"] = st.number_input("상단 여백 (mm)", 0.0, 15.0, float(sp["padding_top_mm"]), 0.5, key=f"sp_pt_{sfx}")
-                sp["padding_bottom_mm"] = st.number_input("하단 필수 여백 (mm)", 0.0, 20.0, float(sp.get("padding_bottom_mm", 12.5)), 0.5, key=f"sp_pb_{sfx}")
 
-            with spec_c2:
-                st.markdown("**헤더 (상단부)**")
-                sp["header_height_mm"] = st.number_input("헤더 높이 (mm)", 2.0, 30.0, float(sp.get("header_height_mm", 13.5)), 0.5, key=f"sp_hh_{sfx}")
-                sp["header_corner_mm"] = st.number_input("헤더 모퉁이 (mm)", 0.0, 20.0, float(sp.get("header_corner_mm", 9.0)), 0.5, key=f"sp_hc_{sfx}")
-                sp["header_body_gap_mm"] = st.number_input("헤더-본문 간격 (mm)", 0.0, 20.0, float(sp.get("header_body_gap_mm", 9.0)), 0.5, key=f"sp_hg_{sfx}")
-
-            # top_ratio_pct 자동 계산 (Design B용)
-            if sp["card_height_mm"] > 0:
-                sp["top_ratio_pct"] = round(sp.get("header_height_mm", 13.5) / sp["card_height_mm"] * 100)
+            # ── [카드 기본] ──
+            st.markdown("**카드 기본**")
+            card_c1, card_c2 = st.columns(2)
+            with card_c1:
+                sp["card_width_mm"] = st.number_input("전체 가로길이 (mm)", 10, 300, int(sp.get("card_width_mm", 90)), key=f"sp_w_{sfx}")
+            with card_c2:
+                sp["card_height_mm"] = st.number_input("전체 세로길이 (mm)", 10, 120, int(sp["card_height_mm"]), key=f"sp_h_{sfx}")
 
             st.markdown("---")
+
+            # ── [상단부] ──
+            st.markdown("**상단부**")
+            hdr_c1, hdr_c2 = st.columns(2)
+            with hdr_c1:
+                sp["header_corner_mm"] = st.number_input("헤더 모퉁이 (mm)", 0.0, 20.0, float(sp.get("header_corner_mm", 9.0)), 0.5, key=f"sp_hc_{sfx}")
+                sp["header_height_mm"] = st.number_input("헤더 높이 (mm)", 2.0, 30.0, float(sp.get("header_height_mm", 13.5)), 0.5, key=f"sp_hh_{sfx}")
+            with hdr_c2:
+                sp["header_font_pt"] = st.number_input("상단부 텍스트 크기 (pt)", 4.0, 30.0, float(sp.get("header_font_pt", 15.0)), 0.5, key=f"sp_hfp_{sfx}")
+                sp["header_font_weight"] = st.selectbox("상단부 텍스트 굵기", weight_options, index=weight_options.index(sp.get("header_font_weight", "Regular")), key=f"sp_hfw_{sfx}")
+
+            st.markdown("---")
+
+            # ── [메인] ──
+            st.markdown("**메인**")
+            # 메인 세로 길이 (자동 계산, 읽기 전용)
+            main_height = sp["card_height_mm"] - sp.get("header_height_mm", 13.5)
+            st.caption(f"메인 세로 길이: **{main_height:.1f}** mm (자동 계산)")
+
+            main_c1, main_c2 = st.columns(2)
+            with main_c1:
+                sp["header_body_gap_mm"] = st.number_input("헤더-본문 간격 (mm)", 0.0, 20.0, float(sp.get("header_body_gap_mm", 9.0)), 0.5, key=f"sp_hg_{sfx}")
+                sp["padding_lr_mm"] = st.number_input("안쪽 바디 테두리 (mm)", 0.0, 15.0, float(sp["padding_lr_mm"]), 0.5, key=f"sp_plr_{sfx}")
+            with main_c2:
+                sp["padding_bottom_mm"] = st.number_input("하단 필수 여백 (mm)", 0.0, 50.0, float(sp.get("padding_bottom_mm", 31.0)), 0.5, key=f"sp_pb_{sfx}")
+
             st.markdown("**텍스트 규격**")
             txt_c1, txt_c2, txt_c3 = st.columns(3)
 
@@ -3221,7 +3257,6 @@ elif menu == "🏷️ 쇼카드 제작":
                 ff1_idx = FONT_FAMILIES.index(cur_ff1) if cur_ff1 in FONT_FAMILIES else 0
                 sp["line1_font_family"] = st.selectbox("폰트 종류", FONT_FAMILIES, index=ff1_idx, key=f"sp_ff1_{sfx}")
                 sp["line1_weight"] = st.selectbox("굵기", weight_options, index=weight_options.index(sp.get("line1_weight", "Regular")), key=f"sp_w1_{sfx}")
-                sp["line1_y_pct"] = st.slider("Y 위치 (%)", 10, 70, int(sp["line1_y_pct"]), key=f"sp_y1_{sfx}")
 
             with txt_c2:
                 st.markdown("*2줄 (소제목)*")
@@ -3230,7 +3265,6 @@ elif menu == "🏷️ 쇼카드 제작":
                 ff2_idx = FONT_FAMILIES.index(cur_ff2) if cur_ff2 in FONT_FAMILIES else 0
                 sp["line2_font_family"] = st.selectbox("폰트 종류", FONT_FAMILIES, index=ff2_idx, key=f"sp_ff2_{sfx}")
                 sp["line2_weight"] = st.selectbox("굵기", weight_options, index=weight_options.index(sp.get("line2_weight", "Regular")), key=f"sp_w2_{sfx}")
-                sp["line2_y_pct"] = st.slider("Y 위치 (%)", 20, 90, int(sp["line2_y_pct"]), key=f"sp_y2_{sfx}")
 
             with txt_c3:
                 st.markdown("*3줄 (제목/제품명)*")
@@ -3239,7 +3273,6 @@ elif menu == "🏷️ 쇼카드 제작":
                 ff3_idx = FONT_FAMILIES.index(cur_ff3) if cur_ff3 in FONT_FAMILIES else 0
                 sp["line3_font_family"] = st.selectbox("폰트 종류", FONT_FAMILIES, index=ff3_idx, key=f"sp_ff3_{sfx}")
                 sp["line3_weight"] = st.selectbox("굵기", weight_options, index=weight_options.index(sp.get("line3_weight", "ExtraBold")), key=f"sp_w3_{sfx}")
-                sp["line3_y_pct"] = st.slider("Y 위치 (%)", 25, 90, int(sp["line3_y_pct"]), key=f"sp_y3_{sfx}")
 
             common["text_align"] = st.radio("텍스트 정렬", ["center", "left"], format_func=lambda x: {"center": "중앙 정렬", "left": "좌측 정렬"}.get(x), horizontal=True, key=f"sp_align_{sfx}")
 
@@ -3333,7 +3366,7 @@ elif menu == "🏷️ 쇼카드 제작":
                         base = dict(all_specs[cur_sz_keys[0]])
                         for sz in cur_sz_keys:
                             all_specs[sz] = dict(base)
-                    save_data = {"version": 2}
+                    save_data = {"version": 3}
                     save_data["_common"] = dict(common)
                     save_data["_uniform"] = all_specs["_uniform"]
                     save_data["_size_order"] = cur_sz_keys
@@ -3393,6 +3426,35 @@ elif menu == "🏷️ 쇼카드 제작":
     def _weight_to_svg(w):
         return {"Light": "300", "Regular": "400", "Medium": "500", "Bold": "700", "ExtraBold": "800", "Black": "900"}.get(w, "400")
 
+    def _calc_text_positions(h_px, size_spec, l1, l2, l3):
+        """mm 기반 텍스트 Y 위치 자동 배치"""
+        content_top = _mm2px(size_spec.get("header_height_mm", 13.5) + size_spec.get("header_body_gap_mm", 9.0))
+        content_bottom = h_px - _mm2px(size_spec.get("padding_bottom_mm", 31.0))
+        available = max(content_bottom - content_top, 1)
+        has_l1 = bool(l1)
+        has_l2 = bool(l2)
+        # l3 always present
+        if has_l1 and has_l2:
+            # 3줄
+            y1 = content_top + available * 0.25
+            y2 = content_top + available * 0.50
+            y3 = content_top + available * 0.75
+        elif has_l2:
+            # 2줄 (l2+l3)
+            y1 = 0
+            y2 = content_top + available * 0.35
+            y3 = content_top + available * 0.70
+        elif has_l1:
+            # 2줄 (l1+l3)
+            y1 = content_top + available * 0.35
+            y2 = 0
+            y3 = content_top + available * 0.70
+        else:
+            # 1줄 (l3만)
+            y1, y2 = 0, 0
+            y3 = content_top + available * 0.55
+        return y1, y2, y3
+
     def _badge_svg(badge_type: str, w_px: float, size_spec: dict, common_spec: dict) -> str:
         """필(pill) 형태 배지 생성 — 배지는 규격에서 제외, 하드코딩 기본값 사용"""
         if badge_type == "none":
@@ -3416,7 +3478,7 @@ elif menu == "🏷️ 쇼카드 제작":
         br = _mm2px(_BADGE_RADIUS_MM)
         gap = _mm2px(_BADGE_GAP_MM)
         pad = _mm2px(size_spec["padding_lr_mm"])
-        pad_top = _mm2px(size_spec["padding_top_mm"])
+        pad_top = _mm2px(2.0)  # 고정 오프셋
         # 전체 배지 폭 계산 (위치 결정용)
         text1_w = len(b["text"]) * char_w
         bw = text1_w + fs * 1.6
@@ -3439,9 +3501,9 @@ elif menu == "🏷️ 쇼카드 제작":
                     f'font-size="{fs}" font-weight="700" font-family="sans-serif">{_escape_xml(b["text2"])}</text>')
         return svg
 
-    def _gen_design_a(w_px, h_px, bg, badge, l1, l2, l3, size_spec, common_spec):
-        """디자인 A: 단색 배경 — 규격 기반"""
-        r = _mm2px(common_spec["corner_radius_mm"])
+    def _gen_design_a(w_px, h_px, bg, badge, l1, l2, l3, size_spec, common_spec, header_text=""):
+        """디자인 A: 단색 배경 — 규격 기반 (v3: 상단만 라운드, mm 기반 배치)"""
+        r = _mm2px(size_spec.get("header_corner_mm", 10.0))
         pad = _mm2px(size_spec["padding_lr_mm"])
         fs1 = _auto_fit(l1 or "", w_px - pad*2, _mm2px(size_spec["line1_font_pt"] * 0.35), 8)
         fs2 = _auto_fit(l2 or "", w_px - pad*2, _mm2px(size_spec["line2_font_pt"] * 0.35), 7)
@@ -3456,10 +3518,20 @@ elif menu == "🏷️ 쇼카드 제작":
         anchor = "middle" if align == "center" else "start"
         tx = w_px / 2 if align == "center" else pad
         badge_el = _badge_svg(badge, w_px, size_spec, common_spec)
+        # 상단만 라운드, 하단 직각
+        bg_path = f"M{r},0 L{w_px-r},0 Q{w_px},0 {w_px},{r} L{w_px},{h_px} L0,{h_px} L0,{r} Q0,0 {r},0 Z"
+        # 상단부 텍스트
+        header_el = ""
+        if header_text:
+            top_h = _mm2px(size_spec.get("header_height_mm", 12.5))
+            hdr_fs = _mm2px(size_spec.get("header_font_pt", 15.0) * 0.35)
+            hdr_w = _weight_to_svg(size_spec.get("header_font_weight", "Regular"))
+            header_y = top_h * 0.65
+            header_el = (f'<text x="{tx}" y="{header_y}" text-anchor="{anchor}" fill="white" '
+                         f'font-size="{hdr_fs}" font-weight="{hdr_w}" font-family="sans-serif" opacity="0.9">{_escape_xml(header_text)}</text>')
+        # mm 기반 텍스트 Y 위치
+        y1, y2, y3 = _calc_text_positions(h_px, size_spec, l1, l2, l3)
         lines = []
-        y1 = h_px * size_spec["line1_y_pct"] / 100
-        y2 = h_px * size_spec["line2_y_pct"] / 100
-        y3 = h_px * size_spec["line3_y_pct"] / 100
         if l1:
             lines.append(f'<text x="{tx}" y="{y1}" text-anchor="{anchor}" fill="white" '
                          f'font-size="{fs1}" font-weight="{w1}" font-family="{ff1}" opacity="0.92">{_escape_xml(l1)}</text>')
@@ -3469,8 +3541,8 @@ elif menu == "🏷️ 쇼카드 제작":
         lines.append(f'<text x="{tx}" y="{y3}" text-anchor="{anchor}" fill="white" '
                      f'font-size="{fs3}" font-weight="{w3}" font-family="{ff3}">{_escape_xml(l3)}</text>')
         return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w_px} {h_px}" width="{w_px}" height="{h_px}">'
-                f'<rect width="{w_px}" height="{h_px}" rx="{r}" fill="{bg}"/>'
-                f'{badge_el}'
+                f'<path d="{bg_path}" fill="{bg}"/>'
+                f'{badge_el}{header_el}'
                 f'{"".join(lines)}'
                 f'</svg>')
 
@@ -3484,13 +3556,11 @@ elif menu == "🏷️ 쇼카드 제작":
         except Exception:
             return True
 
-    def _gen_design_b(w_px, h_px, bg, badge, l1, l2, l3, size_spec, common_spec, top_color=None, bot_color=None):
-        """디자인 B: 상하단 컬러 구분 — 규격 기반"""
-        r = _mm2px(common_spec["corner_radius_mm"])
+    def _gen_design_b(w_px, h_px, bg, badge, l1, l2, l3, size_spec, common_spec, top_color=None, bot_color=None, header_text=""):
+        """디자인 B: 상하단 컬러 구분 — 규격 기반 (v3: 상단만 라운드, mm 기반 배치)"""
+        r = _mm2px(size_spec.get("header_corner_mm", 10.0))
         pad = _mm2px(size_spec["padding_lr_mm"])
-        pad_top = _mm2px(size_spec["padding_top_mm"])
-        top_h = round(h_px * size_spec["top_ratio_pct"] / 100)
-        bot_h = h_px - top_h
+        top_h = _mm2px(size_spec.get("header_height_mm", 13.5))
         tc = top_color or "#FFFFFF"
         bc = bot_color or bg
         bot_text_fill = "#333" if _is_light(bc) else "#FFFFFF"
@@ -3518,29 +3588,38 @@ elif menu == "🏷️ 쇼카드 제작":
             char_w = b_fs * 0.55
             btxt = "↑ 업그레이드" if badge == "업그레이드" else badge
             bw = len(btxt) * char_w + b_fs * 1.6
-            bx, by = pad, pad_top  # 배지는 항상 좌측 상단 고정
+            bx, by = pad, _mm2px(2.0)  # 고정 오프셋
             badge_el = (f'<rect x="{bx}" y="{by}" width="{bw}" height="{b_bh}" rx="{b_br}" fill="{bc}" opacity="0.85"/>'
                         f'<text x="{bx + bw/2}" y="{by + b_bh*0.72}" text-anchor="middle" fill="{bot_text_fill}" '
                         f'font-size="{b_fs}" font-weight="700" font-family="sans-serif">{_escape_xml(btxt)}</text>')
-        # 하단 영역: Y 위치는 하단 영역 기준으로 재배치
+        # 상단부 텍스트
+        header_el = ""
+        if header_text:
+            hdr_fs = _mm2px(size_spec.get("header_font_pt", 15.0) * 0.35)
+            hdr_w = _weight_to_svg(size_spec.get("header_font_weight", "Regular"))
+            top_text_fill = "#333" if _is_light(tc) else "#FFFFFF"
+            header_y = top_h * 0.65
+            header_el = (f'<text x="{tx}" y="{header_y}" text-anchor="{anchor}" fill="{top_text_fill}" '
+                         f'font-size="{hdr_fs}" font-weight="{hdr_w}" font-family="sans-serif">{_escape_xml(header_text)}</text>')
+        # mm 기반 텍스트 Y 위치
+        y1, y2, y3 = _calc_text_positions(h_px, size_spec, l1, l2, l3)
         lines = []
-        bot_y1 = top_h + bot_h * (size_spec["line1_y_pct"] - size_spec["top_ratio_pct"]) / (100 - size_spec["top_ratio_pct"])
-        bot_y2 = top_h + bot_h * (size_spec["line2_y_pct"] - size_spec["top_ratio_pct"]) / (100 - size_spec["top_ratio_pct"])
-        bot_y3 = top_h + bot_h * (size_spec["line3_y_pct"] - size_spec["top_ratio_pct"]) / (100 - size_spec["top_ratio_pct"])
         if l1:
-            lines.append(f'<text x="{tx}" y="{bot_y1}" text-anchor="{anchor}" fill="{bot_text_fill}" '
+            lines.append(f'<text x="{tx}" y="{y1}" text-anchor="{anchor}" fill="{bot_text_fill}" '
                          f'font-size="{fs1}" font-weight="{w1}" font-family="{ff1}" opacity="0.92">{_escape_xml(l1)}</text>')
         if l2:
-            lines.append(f'<text x="{tx}" y="{bot_y2}" text-anchor="{anchor}" fill="{bot_text_fill}" '
+            lines.append(f'<text x="{tx}" y="{y2}" text-anchor="{anchor}" fill="{bot_text_fill}" '
                          f'font-size="{fs2}" font-weight="{w2}" font-family="{ff2}" opacity="0.85">{_escape_xml(l2)}</text>')
-        lines.append(f'<text x="{tx}" y="{bot_y3}" text-anchor="{anchor}" fill="{bot_text_fill}" '
+        lines.append(f'<text x="{tx}" y="{y3}" text-anchor="{anchor}" fill="{bot_text_fill}" '
                      f'font-size="{fs3}" font-weight="{w3}" font-family="{ff3}">{_escape_xml(l3)}</text>')
+        # 상단만 라운드, 하단 직각 (전체 배경)
+        bg_path = f"M{r},0 L{w_px-r},0 Q{w_px},0 {w_px},{r} L{w_px},{h_px} L0,{h_px} L0,{r} Q0,0 {r},0 Z"
         top_path = (f'M{r},0 L{w_px-r},0 Q{w_px},0 {w_px},{r} '
                     f'L{w_px},{top_h} L0,{top_h} L0,{r} Q0,0 {r},0 Z')
         return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w_px} {h_px}" width="{w_px}" height="{h_px}">'
-                f'<rect width="{w_px}" height="{h_px}" rx="{r}" fill="{bc}"/>'
+                f'<path d="{bg_path}" fill="{bc}"/>'
                 f'<path d="{top_path}" fill="{tc}"/>'
-                f'{badge_el}'
+                f'{badge_el}{header_el}'
                 f'{"".join(lines)}'
                 f'</svg>')
 
@@ -3666,6 +3745,7 @@ elif menu == "🏷️ 쇼카드 제작":
 
         # ── 워딩 입력 ──
         st.subheader("4️⃣ 워딩 입력")
+        sc_header_text = st.text_input("상단부 텍스트", placeholder="예: 마트약국 추천", key="sc_header_text")
         col_w1, col_w2 = st.columns(2)
         with col_w1:
             sc_line1 = st.text_input("1줄: 소구 포인트", placeholder="예: 같은 성분, 더 저렴하게", key="sc_l1")
@@ -3763,8 +3843,8 @@ elif menu == "🏷️ 쇼카드 제작":
         scale = 3
         w_px, h_px = w_mm * scale, h_mm * scale
 
-        svg_a = _gen_design_a(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3, size_spec, common_spec)
-        svg_b = _gen_design_b(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3, size_spec, common_spec, top_color=sc_top_color, bot_color=sc_bot_color)
+        svg_a = _gen_design_a(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3, size_spec, common_spec, header_text=sc_header_text)
+        svg_b = _gen_design_b(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3, size_spec, common_spec, top_color=sc_top_color, bot_color=sc_bot_color, header_text=sc_header_text)
 
         design_col1, design_col2 = st.columns(2)
         with design_col1:
