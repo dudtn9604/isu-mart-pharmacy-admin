@@ -3684,77 +3684,161 @@ elif menu == "🏷️ 쇼카드 제작":
                 pass  # Helvetica 폴백
         return bold_name, regular_name
 
-    def _svg_to_pdf_bytes(svg_str: str, w_mm: float, h_mm: float) -> bytes:
-        """SVG → PDF 변환 (순수 reportlab — 한글 폰트 지원)"""
+    def _gen_pdf_bytes(design: str, w_mm: float, h_mm: float, bg: str, badge: str,
+                       l1: str, l2: str, l3: str, size_spec: dict, common_spec: dict,
+                       header_text: str = "", top_color: str = None, bot_color: str = None) -> bytes:
+        """쇼카드 PDF 직접 생성 (reportlab 네이티브 — SVG 파싱 없음)"""
         from io import BytesIO
         try:
             from reportlab.lib.units import mm as rl_mm
             from reportlab.pdfgen import canvas as rl_canvas
-            from reportlab.lib.colors import HexColor, white, Color
-            import re
-            bold_font, regular_font = _register_korean_font()
+            from reportlab.lib.colors import HexColor
+            font_name, _ = _register_korean_font()
             buf = BytesIO()
-            pw, ph = (w_mm + 4) * rl_mm, (h_mm + 4) * rl_mm
+            pw, ph = w_mm * rl_mm, h_mm * rl_mm
             c = rl_canvas.Canvas(buf, pagesize=(pw, ph))
-            ox, oy = 2 * rl_mm, 2 * rl_mm  # bleed offset
-            scale = rl_mm / 3  # 3px = 1mm (동일 스케일)
-            # SVG에서 path/rect/text 추출하여 직접 그리기
-            # 1) path fill (배경, 상단부)
-            for m in re.finditer(r'<path d="([^"]+)" fill="([^"]+)"', svg_str):
-                d, fill = m.group(1), m.group(2)
-                try:
-                    c.setFillColor(HexColor(fill))
-                except Exception:
-                    c.setFillColor(HexColor("#FFFFFF"))
+
+            # ── 헬퍼 ──
+            def mm(v):
+                return v * rl_mm
+            def hc(h):
+                try: return HexColor(h)
+                except Exception: return HexColor("#888888")
+            def py(y_mm):
+                """상단 기준 y(mm) → reportlab 좌하단 기준 y"""
+                return ph - y_mm * rl_mm
+            def top_round_rect(x, y_bot, w, h, r, fill_color):
+                """상단만 라운드, 하단 직각인 사각형 (reportlab 좌표계)"""
+                c.setFillColor(hc(fill_color))
                 p = c.beginPath()
-                cmds = re.findall(r'([MLQZ])([\d.,\- ]*)', d)
-                for cmd, args in cmds:
-                    nums = [float(x) for x in re.findall(r'[\d.\-]+', args)]
-                    if cmd == 'M' and len(nums) >= 2:
-                        p.moveTo(ox + nums[0] * scale, oy + ph - 4 * rl_mm - nums[1] * scale)
-                    elif cmd == 'L' and len(nums) >= 2:
-                        p.lineTo(ox + nums[0] * scale, oy + ph - 4 * rl_mm - nums[1] * scale)
-                    elif cmd == 'Q' and len(nums) >= 4:
-                        p.curveTo(ox + nums[0] * scale, oy + ph - 4 * rl_mm - nums[1] * scale,
-                                  ox + nums[0] * scale, oy + ph - 4 * rl_mm - nums[1] * scale,
-                                  ox + nums[2] * scale, oy + ph - 4 * rl_mm - nums[3] * scale)
-                    elif cmd == 'Z':
-                        p.close()
+                x2, yt = x + w, y_bot + h
+                p.moveTo(x, y_bot)
+                p.lineTo(x, yt - r)
+                p.curveTo(x, yt, x, yt, x + r, yt)       # 좌상단 라운드
+                p.lineTo(x2 - r, yt)
+                p.curveTo(x2, yt, x2, yt, x2, yt - r)    # 우상단 라운드
+                p.lineTo(x2, y_bot)
+                p.close()
                 c.drawPath(p, fill=1, stroke=0)
-            # 2) rect fill (배지 등)
-            for m in re.finditer(r'<rect x="([^"]*)" y="([^"]*)" width="([^"]*)" height="([^"]*)" rx="([^"]*)" fill="([^"]*)"', svg_str):
-                rx, ry, rw, rh, rrx, rfill = [m.group(i) for i in range(1, 7)]
-                try:
-                    c.setFillColor(HexColor(rfill))
-                except Exception:
-                    try:
-                        rgba = re.findall(r'[\d.]+', rfill)
-                        if len(rgba) >= 4:
-                            c.setFillColor(Color(int(rgba[0])/255, int(rgba[1])/255, int(rgba[2])/255, float(rgba[3])))
-                    except Exception:
-                        c.setFillColor(HexColor("#888888"))
-                fx, fy, fw, fh = float(rx)*scale, float(ry)*scale, float(rw)*scale, float(rh)*scale
-                c.roundRect(ox + fx, oy + ph - 4*rl_mm - fy - fh, fw, fh, float(rrx)*scale, fill=1, stroke=0)
-            # 3) text (한글 폰트 사용)
-            for m in re.finditer(r'<text x="([^"]*)" y="([^"]*)" text-anchor="([^"]*)" fill="([^"]*)" font-size="([^"]*)" font-weight="([^"]*)" font-family="([^"]*)"[^>]*>([^<]*)</text>', svg_str):
-                tx, ty, anchor, tfill, tfs, tw, tf, txt = [m.group(i) for i in range(1, 9)]
-                txt = txt.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"')
-                if not txt.strip():
-                    continue
-                try:
-                    c.setFillColor(HexColor(tfill))
-                except Exception:
-                    c.setFillColor(white)
-                fs_pt = float(tfs) * scale / rl_mm * 72  # px → pt
-                fs_pt = max(4, min(fs_pt, 48))
-                font_name = bold_font if int(tw) >= 700 else regular_font
+            def draw_text(text, x_mm, y_mm, fs_pt, fill, anchor="middle", opacity=1.0):
+                if not text or not text.strip():
+                    return
+                if opacity < 1.0:
+                    c.saveState()
+                    c.setFillAlpha(opacity)
+                c.setFillColor(hc(fill))
                 c.setFont(font_name, fs_pt)
-                pdf_x = ox + float(tx) * scale
-                pdf_y = oy + ph - 4 * rl_mm - float(ty) * scale
+                _py = py(y_mm)
                 if anchor == "middle":
-                    c.drawCentredString(pdf_x, pdf_y, txt)
+                    c.drawCentredString(mm(x_mm), _py, text)
                 else:
-                    c.drawString(pdf_x, pdf_y, txt)
+                    c.drawString(mm(x_mm), _py, text)
+                if opacity < 1.0:
+                    c.restoreState()
+
+            # ── mm 기반 레이아웃 파라미터 ──
+            pad_lr = size_spec["padding_lr_mm"]
+            r = size_spec.get("header_corner_mm", 10.0)
+            hdr_h = size_spec.get("header_height_mm", 13.5)
+            hdr_gap = size_spec.get("header_body_gap_mm", 9.0)
+            pad_bot = size_spec.get("padding_bottom_mm", 31.0)
+            align = common_spec["text_align"]
+            anc = "middle" if align == "center" else "start"
+            tx = w_mm / 2 if align == "center" else pad_lr
+
+            # ── 폰트 크기 계산 ──
+            def mm2pt(v):
+                return v * 2.835
+            def auto_fit(text, avail_mm, max_fs_mm, min_fs_mm=2.8):
+                cw = 0.55
+                for fs10 in range(int(max_fs_mm * 10), int(min_fs_mm * 10) - 1, -1):
+                    fmm = fs10 / 10.0
+                    if len(text) * mm2pt(fmm) * cw <= mm(avail_mm):
+                        return mm2pt(fmm)
+                return mm2pt(min_fs_mm)
+
+            avail_w = w_mm - pad_lr * 2
+            fs1 = auto_fit(l1 or "", avail_w, size_spec["line1_font_pt"] * 0.35, 2.8)
+            fs2 = auto_fit(l2 or "", avail_w, size_spec["line2_font_pt"] * 0.35, 2.5)
+            fs3 = auto_fit(l3, avail_w, size_spec["line3_font_pt"] * 0.35, 3.5)
+
+            # ── 텍스트 Y 위치 (mm 기반, SVG _calc_text_positions 동일 로직) ──
+            ct = hdr_h + hdr_gap
+            cb = h_mm - pad_bot
+            avail_h = max(cb - ct, 1)
+            active = []
+            if l1: active.append(("l1", size_spec["line1_font_pt"] * 0.35))
+            if l2: active.append(("l2", size_spec["line2_font_pt"] * 0.35))
+            active.append(("l3", size_spec["line3_font_pt"] * 0.35))
+            gap_r = 0.5
+            blk_h = sum(f for _, f in active)
+            for i in range(len(active) - 1):
+                blk_h += max(active[i][1], active[i+1][1]) * gap_r
+            sy = ct + (avail_h - blk_h) / 2
+            tys = {}
+            cy = sy
+            for i, (nm, fmm) in enumerate(active):
+                tys[nm] = cy + fmm * 0.8
+                cy += fmm
+                if i < len(active) - 1:
+                    cy += max(fmm, active[i+1][1]) * gap_r
+
+            # ── 배경 ──
+            if design == "B":
+                bc = bot_color or bg
+                tc = top_color or "#FFFFFF"
+                # 전체 배경 (상단 라운드, 하단 직각)
+                top_round_rect(0, 0, pw, ph, mm(r), bc)
+                # 상단 헤더 (상단 라운드, 하단 직각)
+                top_round_rect(0, py(hdr_h), pw, mm(hdr_h), mm(r), tc)
+                body_fill = "#333" if _is_light(bc) else "#FFFFFF"
+                top_fill = "#333" if _is_light(tc) else "#FFFFFF"
+            else:
+                top_round_rect(0, 0, pw, ph, mm(r), bg)
+                body_fill = "#FFFFFF"
+                top_fill = "#FFFFFF"
+
+            # ── 배지 ──
+            if badge and badge != "none":
+                BFS = 11.0 * 0.35  # mm
+                BH, BR = 5.5, 3.0  # mm
+                bpt = mm2pt(BFS)
+                btxt = "↑ 업그레이드" if badge == "업그레이드" else badge
+                bw = len(btxt) * BFS * 0.55 + BFS * 1.6
+                bx_mm, by_mm = pad_lr, 2.0
+                if design == "B":
+                    c.saveState(); c.setFillAlpha(0.85); c.setFillColor(hc(bc))
+                    c.roundRect(mm(bx_mm), py(by_mm + BH), mm(bw), mm(BH), mm(BR), fill=1, stroke=0)
+                    c.restoreState()
+                    bfill = body_fill
+                else:
+                    c.saveState(); c.setFillAlpha(0.35); c.setFillColor(hc("#000000"))
+                    c.roundRect(mm(bx_mm), py(by_mm + BH), mm(bw), mm(BH), mm(BR), fill=1, stroke=0)
+                    c.restoreState()
+                    bfill = "#FFFFFF"
+                draw_text(btxt, bx_mm + bw/2, by_mm + BH * 0.72, bpt, bfill)
+                extras = {"동일성분": "↓ 저렴해요", "유사성분": "↓ 저렴해요"}
+                if badge in extras:
+                    bt2 = extras[badge]
+                    bw2 = len(bt2) * BFS * 0.55 + BFS * 1.6
+                    bx2 = bx_mm + bw + 2.0
+                    c.saveState(); c.setFillAlpha(0.25); c.setFillColor(hc("#FFFFFF"))
+                    c.roundRect(mm(bx2), py(by_mm + BH), mm(bw2), mm(BH), mm(BR), fill=1, stroke=0)
+                    c.restoreState()
+                    draw_text(bt2, bx2 + bw2/2, by_mm + BH * 0.72, bpt, "#FFFFFF")
+
+            # ── 상단 헤더 텍스트 ──
+            if header_text:
+                hfs = mm2pt(size_spec.get("header_font_pt", 15.0) * 0.35)
+                hy = hdr_h * 0.65
+                hfill = top_fill if design == "B" else "#FFFFFF"
+                draw_text(header_text, tx, hy, hfs, hfill, anc, 0.9)
+
+            # ── 본문 텍스트 ──
+            if l1: draw_text(l1, tx, tys.get("l1", 0), fs1, body_fill, anc, 0.92)
+            if l2: draw_text(l2, tx, tys.get("l2", 0), fs2, body_fill, anc, 0.85)
+            draw_text(l3, tx, tys.get("l3", 0), fs3, body_fill, anc)
+
             c.save()
             buf.seek(0)
             return buf.read()
@@ -3957,7 +4041,12 @@ elif menu == "🏷️ 쇼카드 제작":
         # ── 다운로드 ──
         st.subheader("6️⃣ 다운로드")
 
-        pdf_bytes = _svg_to_pdf_bytes(selected_svg, w_mm, h_mm)
+        _design_type = "A" if design_idx == 0 else "B"
+        pdf_bytes = _gen_pdf_bytes(
+            _design_type, w_mm, h_mm, sc_color, sc_badge,
+            final_l1, final_l2, final_l3, size_spec, common_spec,
+            header_text=final_header, top_color=sc_top_color, bot_color=sc_bot_color,
+        )
         design_label = ["solid", "split"][design_idx]
         filename = f"showcard_{sc_product}_{sc_size}_{design_label}.pdf"
 
