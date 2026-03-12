@@ -3045,22 +3045,23 @@ elif menu == "🛒 교차판매 분석":
                         "confidence_b_to_a": "Conf B→A(%)",
                         "lift": "Lift",
                     })
-                    st.dataframe(sc_display, use_container_width=True, hide_index=True)
-
-                    # 세부 카테고리 쌍 선택 → 상품 쌍 상세
-                    st.markdown("---")
-                    pair_options = [
-                        f"{r['item_a']} × {r['item_b']}"
-                        for _, r in sc_top.iterrows()
-                    ]
-                    selected_pair = st.selectbox(
-                        "세부 카테고리 쌍 선택 (상품 쌍 상세 보기)",
-                        ["선택하세요"] + pair_options,
-                        key="sc_pair_select",
+                    st.caption("👆 행을 **클릭**하면 해당 쌍의 상품 상세를 확인할 수 있습니다.")
+                    sc_event = st.dataframe(
+                        sc_display, use_container_width=True, hide_index=True,
+                        on_select="rerun", selection_mode="single-row",
+                        key="sc_table_select",
                     )
-                    if selected_pair and selected_pair != "선택하세요":
-                        parts = selected_pair.split(" × ", 1)
-                        sc_a, sc_b = parts[0], parts[1]
+
+                    # 행 선택 시 상품 쌍 상세
+                    if sc_event and sc_event.selection and sc_event.selection.rows:
+                        sel_idx = sc_event.selection.rows[0]
+                        sel_row = sc_top.iloc[sel_idx]
+                        sc_a, sc_b = sel_row["item_a"], sel_row["item_b"]
+
+                        st.markdown("---")
+                        st.subheader(f"{sc_a} × {sc_b}")
+                        st.markdown(f"동시구매 건수 = **{int(sel_row['count'])}건** | Lift = **{sel_row['lift']}**")
+
                         sc_pair = get_products_by_category_pair(
                             sub_items, sc_a, sc_b, top_n=30, min_count=3, level="subcategory"
                         )
