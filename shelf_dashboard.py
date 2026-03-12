@@ -3096,10 +3096,28 @@ elif menu == "🏷️ 쇼카드 제작":
         "XXL": {"w": 150, "label": "XXL (150mm)", "desc": "진열폭 15cm+"},
     }
 
-    # ── 디자인 규격 기본값 ──
-    DEFAULT_SPEC = {
-        "card_height_mm": 65,
+    # ── 디자인 규격 기본값 (v2: 사이즈별) ──
+    BADGE_POSITIONS = {
+        "top_left": "상단 좌측",
+        "top_center": "상단 중앙",
+        "top_right": "상단 우측",
+    }
+    FONT_FAMILIES = [
+        "sans-serif",
+        "'Noto Sans KR', sans-serif",
+        "'Pretendard', sans-serif",
+        "serif",
+        "monospace",
+    ]
+
+    DEFAULT_COMMON = {
         "corner_radius_mm": 3.0,
+        "text_align": "center",
+        "badge_position": "top_left",
+    }
+
+    DEFAULT_SIZE_SPEC = {
+        "card_height_mm": 65,
         "padding_lr_mm": 3.0,
         "padding_top_mm": 2.5,
         "badge_height_mm": 5.0,
@@ -3108,20 +3126,56 @@ elif menu == "🏷️ 쇼카드 제작":
         "badge_gap_mm": 1.5,
         "line1_font_pt": 10.0,
         "line1_weight": "Regular",
+        "line1_font_family": "sans-serif",
         "line1_y_pct": 38,
         "line2_font_pt": 9.0,
         "line2_weight": "Regular",
+        "line2_font_family": "sans-serif",
         "line2_y_pct": 52,
         "line3_font_pt": 20.0,
         "line3_weight": "ExtraBold",
+        "line3_font_family": "sans-serif",
         "line3_y_pct": 80,
-        "text_align": "center",
         "top_ratio_pct": 17,
     }
 
-    # session_state에 규격 로드
-    if "sc_spec" not in st.session_state:
-        # Supabase에서 저장된 규격 로드 시도
+    DEFAULT_SPECS = {
+        "_common": dict(DEFAULT_COMMON),
+        "_uniform": True,
+        "S": {**DEFAULT_SIZE_SPEC, "card_height_mm": 55, "line1_font_pt": 8.0, "line2_font_pt": 7.0, "line3_font_pt": 16.0, "badge_font_pt": 6.0, "badge_height_mm": 4.0},
+        "M": {**DEFAULT_SIZE_SPEC, "card_height_mm": 60, "line1_font_pt": 9.0, "line2_font_pt": 8.0, "line3_font_pt": 18.0},
+        "L": {**DEFAULT_SIZE_SPEC},
+        "XL": {**DEFAULT_SIZE_SPEC, "card_height_mm": 70, "line1_font_pt": 11.0, "line2_font_pt": 10.0, "line3_font_pt": 22.0, "badge_font_pt": 8.0, "badge_height_mm": 5.5},
+        "XXL": {**DEFAULT_SIZE_SPEC, "card_height_mm": 80, "line1_font_pt": 12.0, "line2_font_pt": 11.0, "line3_font_pt": 24.0, "badge_font_pt": 9.0, "badge_height_mm": 6.0, "badge_gap_mm": 2.0},
+    }
+
+    # v1 → v2 마이그레이션
+    def _migrate_spec_v1_to_v2(old_spec):
+        """v1(단일 dict) → v2(사이즈별) 자동 변환"""
+        try:
+            common = {
+                "corner_radius_mm": old_spec.get("corner_radius_mm", 3.0),
+                "text_align": old_spec.get("text_align", "center"),
+                "badge_position": old_spec.get("badge_position", "top_left"),
+            }
+            size_keys = [k for k in DEFAULT_SIZE_SPEC]
+            size_data = {}
+            for k in size_keys:
+                size_data[k] = old_spec.get(k, DEFAULT_SIZE_SPEC[k])
+            # font_family 키가 없으면 추가
+            for n in [1, 2, 3]:
+                ff_key = f"line{n}_font_family"
+                if ff_key not in size_data:
+                    size_data[ff_key] = "sans-serif"
+            new_specs = {"_common": common, "_uniform": True}
+            for sz in ["S", "M", "L", "XL", "XXL"]:
+                new_specs[sz] = dict(size_data)
+            return new_specs
+        except Exception:
+            return None
+
+    # session_state에 규격 로드 (v2: 사이즈별)
+    if "sc_specs" not in st.session_state:
         _loaded_spec = None
         try:
             sb = _get_sb()
@@ -3132,78 +3186,141 @@ elif menu == "🏷️ 쇼카드 제작":
         except Exception:
             pass
         if _loaded_spec and isinstance(_loaded_spec, dict):
-            merged = {**DEFAULT_SPEC, **_loaded_spec}
-            st.session_state["sc_spec"] = merged
+            if "version" in _loaded_spec and _loaded_spec["version"] == 2:
+                # v2 구조: version 키 제거 후 사용
+                v2 = {k: v for k, v in _loaded_spec.items() if k != "version"}
+                # 누락 키 보충
+                for sz in ["S", "M", "L", "XL", "XXL"]:
+                    if sz not in v2:
+                        v2[sz] = dict(DEFAULT_SPECS[sz])
+                    else:
+                        v2[sz] = {**DEFAULT_SPECS[sz], **v2[sz]}
+                if "_common" not in v2:
+                    v2["_common"] = dict(DEFAULT_COMMON)
+                else:
+                    v2["_common"] = {**DEFAULT_COMMON, **v2["_common"]}
+                if "_uniform" not in v2:
+                    v2["_uniform"] = True
+                st.session_state["sc_specs"] = v2
+            else:
+                # v1 → v2 마이그레이션
+                migrated = _migrate_spec_v1_to_v2(_loaded_spec)
+                st.session_state["sc_specs"] = migrated if migrated else {k: (dict(v) if isinstance(v, dict) else v) for k, v in DEFAULT_SPECS.items()}
         else:
-            st.session_state["sc_spec"] = dict(DEFAULT_SPEC)
+            import copy
+            st.session_state["sc_specs"] = copy.deepcopy(DEFAULT_SPECS)
 
-    spec = st.session_state["sc_spec"]
+    all_specs = st.session_state["sc_specs"]
 
     # ── 디자인 규격 설정 (expander) ──
     with st.expander("⚙️ 디자인 규격 설정 (디자이너용)", expanded=False):
         st.caption("쇼카드의 텍스트 크기, 위치, 여백 등을 규격화합니다. 저장하면 이후 모든 쇼카드에 적용됩니다.")
 
-        spec_c1, spec_c2, spec_c3 = st.columns(3)
-        with spec_c1:
-            st.markdown("**카드 기본**")
-            spec["card_height_mm"] = st.number_input("카드 세로 (mm)", 30, 120, int(spec["card_height_mm"]), key="sp_h")
-            spec["corner_radius_mm"] = st.number_input("모서리 라운드 (mm)", 0.0, 15.0, float(spec["corner_radius_mm"]), 0.5, key="sp_cr")
-            spec["padding_lr_mm"] = st.number_input("좌우 여백 (mm)", 0.0, 15.0, float(spec["padding_lr_mm"]), 0.5, key="sp_plr")
-            spec["padding_top_mm"] = st.number_input("상단 여백 (mm)", 0.0, 15.0, float(spec["padding_top_mm"]), 0.5, key="sp_pt")
-
-        with spec_c2:
-            st.markdown("**배지**")
-            spec["badge_height_mm"] = st.number_input("배지 높이 (mm)", 2.0, 12.0, float(spec["badge_height_mm"]), 0.5, key="sp_bh")
-            spec["badge_radius_mm"] = st.number_input("배지 라운드 (mm)", 0.0, 10.0, float(spec["badge_radius_mm"]), 0.5, key="sp_br")
-            spec["badge_font_pt"] = st.number_input("배지 폰트 (pt)", 4.0, 14.0, float(spec["badge_font_pt"]), 0.5, key="sp_bf")
-            spec["badge_gap_mm"] = st.number_input("배지 간격 (mm)", 0.5, 5.0, float(spec["badge_gap_mm"]), 0.5, key="sp_bg")
-
-        with spec_c3:
-            st.markdown("**상하단 구분 비율**")
-            spec["top_ratio_pct"] = st.slider("상단 비율 (%)", 5, 50, int(spec["top_ratio_pct"]), key="sp_tr")
-            st.caption(f"상단 {spec['top_ratio_pct']}% / 하단 {100 - spec['top_ratio_pct']}%")
-
-        st.markdown("---")
-        st.markdown("**텍스트 규격**")
-        txt_c1, txt_c2, txt_c3 = st.columns(3)
+        common = all_specs["_common"]
         weight_options = ["Light", "Regular", "Medium", "Bold", "ExtraBold", "Black"]
+        badge_pos_keys = list(BADGE_POSITIONS.keys())
+        badge_pos_labels = list(BADGE_POSITIONS.values())
 
-        with txt_c1:
-            st.markdown("*1줄 (소구 포인트)*")
-            spec["line1_font_pt"] = st.number_input("폰트 크기 (pt)", 5.0, 30.0, float(spec["line1_font_pt"]), 0.5, key="sp_f1")
-            spec["line1_weight"] = st.selectbox("굵기", weight_options, index=weight_options.index(spec.get("line1_weight", "Regular")), key="sp_w1")
-            spec["line1_y_pct"] = st.slider("Y 위치 (%)", 15, 60, int(spec["line1_y_pct"]), key="sp_y1")
+        # 전체 동일 적용 체크박스
+        is_uniform = st.checkbox("전체 사이즈에 동일 적용", value=all_specs.get("_uniform", True), key="sp_uniform")
+        all_specs["_uniform"] = is_uniform
 
-        with txt_c2:
-            st.markdown("*2줄 (부가 설명)*")
-            spec["line2_font_pt"] = st.number_input("폰트 크기 (pt)", 5.0, 30.0, float(spec["line2_font_pt"]), 0.5, key="sp_f2")
-            spec["line2_weight"] = st.selectbox("굵기", weight_options, index=weight_options.index(spec.get("line2_weight", "Regular")), key="sp_w2")
-            spec["line2_y_pct"] = st.slider("Y 위치 (%)", 25, 75, int(spec["line2_y_pct"]), key="sp_y2")
+        def _render_size_spec_ui(sz, sp):
+            """사이즈별 규격 UI 렌더링"""
+            sfx = sz  # widget key 접미사
+            spec_c1, spec_c2, spec_c3 = st.columns(3)
+            with spec_c1:
+                st.markdown("**카드 기본**")
+                sp["card_height_mm"] = st.number_input("카드 세로 (mm)", 30, 120, int(sp["card_height_mm"]), key=f"sp_h_{sfx}")
+                common["corner_radius_mm"] = st.number_input("모서리 라운드 (mm)", 0.0, 15.0, float(common["corner_radius_mm"]), 0.5, key=f"sp_cr_{sfx}")
+                sp["padding_lr_mm"] = st.number_input("좌우 여백 (mm)", 0.0, 15.0, float(sp["padding_lr_mm"]), 0.5, key=f"sp_plr_{sfx}")
+                sp["padding_top_mm"] = st.number_input("상단 여백 (mm)", 0.0, 15.0, float(sp["padding_top_mm"]), 0.5, key=f"sp_pt_{sfx}")
 
-        with txt_c3:
-            st.markdown("*3줄 (헤드라인/제품명)*")
-            spec["line3_font_pt"] = st.number_input("폰트 크기 (pt)", 8.0, 40.0, float(spec["line3_font_pt"]), 0.5, key="sp_f3")
-            spec["line3_weight"] = st.selectbox("굵기", weight_options, index=weight_options.index(spec.get("line3_weight", "ExtraBold")), key="sp_w3")
-            spec["line3_y_pct"] = st.slider("Y 위치 (%)", 55, 95, int(spec["line3_y_pct"]), key="sp_y3")
+            with spec_c2:
+                st.markdown("**배지**")
+                sp["badge_height_mm"] = st.number_input("배지 높이 (mm)", 2.0, 12.0, float(sp["badge_height_mm"]), 0.5, key=f"sp_bh_{sfx}")
+                sp["badge_radius_mm"] = st.number_input("배지 라운드 (mm)", 0.0, 10.0, float(sp["badge_radius_mm"]), 0.5, key=f"sp_br_{sfx}")
+                sp["badge_font_pt"] = st.number_input("배지 폰트 (pt)", 4.0, 14.0, float(sp["badge_font_pt"]), 0.5, key=f"sp_bf_{sfx}")
+                sp["badge_gap_mm"] = st.number_input("배지 간격 (mm)", 0.5, 5.0, float(sp["badge_gap_mm"]), 0.5, key=f"sp_bg_{sfx}")
+                cur_pos_idx = badge_pos_keys.index(common.get("badge_position", "top_left")) if common.get("badge_position", "top_left") in badge_pos_keys else 0
+                sel_pos = st.selectbox("배지 위치", badge_pos_keys, index=cur_pos_idx, format_func=lambda x: BADGE_POSITIONS[x], key=f"sp_bpos_{sfx}")
+                common["badge_position"] = sel_pos
 
-        spec["text_align"] = st.radio("텍스트 정렬", ["center", "left"], format_func=lambda x: {"center": "중앙 정렬", "left": "좌측 정렬"}.get(x), horizontal=True, key="sp_align")
+            with spec_c3:
+                st.markdown("**상하단 구분 비율**")
+                sp["top_ratio_pct"] = st.slider("상단 비율 (%)", 5, 50, int(sp["top_ratio_pct"]), key=f"sp_tr_{sfx}")
+                st.caption(f"상단 {sp['top_ratio_pct']}% / 하단 {100 - sp['top_ratio_pct']}%")
+
+            st.markdown("---")
+            st.markdown("**텍스트 규격**")
+            txt_c1, txt_c2, txt_c3 = st.columns(3)
+
+            with txt_c1:
+                st.markdown("*1줄 (소구 포인트)*")
+                sp["line1_font_pt"] = st.number_input("폰트 크기 (pt)", 5.0, 30.0, float(sp["line1_font_pt"]), 0.5, key=f"sp_f1_{sfx}")
+                cur_ff1 = sp.get("line1_font_family", "sans-serif")
+                ff1_idx = FONT_FAMILIES.index(cur_ff1) if cur_ff1 in FONT_FAMILIES else 0
+                sp["line1_font_family"] = st.selectbox("폰트 종류", FONT_FAMILIES, index=ff1_idx, key=f"sp_ff1_{sfx}")
+                sp["line1_weight"] = st.selectbox("굵기", weight_options, index=weight_options.index(sp.get("line1_weight", "Regular")), key=f"sp_w1_{sfx}")
+                sp["line1_y_pct"] = st.slider("Y 위치 (%)", 15, 60, int(sp["line1_y_pct"]), key=f"sp_y1_{sfx}")
+
+            with txt_c2:
+                st.markdown("*2줄 (부가 설명)*")
+                sp["line2_font_pt"] = st.number_input("폰트 크기 (pt)", 5.0, 30.0, float(sp["line2_font_pt"]), 0.5, key=f"sp_f2_{sfx}")
+                cur_ff2 = sp.get("line2_font_family", "sans-serif")
+                ff2_idx = FONT_FAMILIES.index(cur_ff2) if cur_ff2 in FONT_FAMILIES else 0
+                sp["line2_font_family"] = st.selectbox("폰트 종류", FONT_FAMILIES, index=ff2_idx, key=f"sp_ff2_{sfx}")
+                sp["line2_weight"] = st.selectbox("굵기", weight_options, index=weight_options.index(sp.get("line2_weight", "Regular")), key=f"sp_w2_{sfx}")
+                sp["line2_y_pct"] = st.slider("Y 위치 (%)", 25, 75, int(sp["line2_y_pct"]), key=f"sp_y2_{sfx}")
+
+            with txt_c3:
+                st.markdown("*3줄 (헤드라인/제품명)*")
+                sp["line3_font_pt"] = st.number_input("폰트 크기 (pt)", 8.0, 40.0, float(sp["line3_font_pt"]), 0.5, key=f"sp_f3_{sfx}")
+                cur_ff3 = sp.get("line3_font_family", "sans-serif")
+                ff3_idx = FONT_FAMILIES.index(cur_ff3) if cur_ff3 in FONT_FAMILIES else 0
+                sp["line3_font_family"] = st.selectbox("폰트 종류", FONT_FAMILIES, index=ff3_idx, key=f"sp_ff3_{sfx}")
+                sp["line3_weight"] = st.selectbox("굵기", weight_options, index=weight_options.index(sp.get("line3_weight", "ExtraBold")), key=f"sp_w3_{sfx}")
+                sp["line3_y_pct"] = st.slider("Y 위치 (%)", 55, 95, int(sp["line3_y_pct"]), key=f"sp_y3_{sfx}")
+
+            common["text_align"] = st.radio("텍스트 정렬", ["center", "left"], format_func=lambda x: {"center": "중앙 정렬", "left": "좌측 정렬"}.get(x), horizontal=True, key=f"sp_align_{sfx}")
+
+        if is_uniform:
+            # 전체 동일 적용: L 사이즈 기준으로 편집
+            _render_size_spec_ui("ALL", all_specs["L"])
+        else:
+            # 사이즈별 개별 설정
+            size_tabs = st.tabs(["S", "M", "L", "XL", "XXL"])
+            for tab, sz in zip(size_tabs, ["S", "M", "L", "XL", "XXL"]):
+                with tab:
+                    _render_size_spec_ui(sz, all_specs[sz])
 
         st.markdown("---")
         save_col1, save_col2 = st.columns(2)
         with save_col1:
             if st.button("💾 규격 저장", use_container_width=True, key="sp_save"):
                 try:
+                    # uniform이면 L 값을 전체 사이즈에 복사
+                    if all_specs["_uniform"]:
+                        base = dict(all_specs["L"])
+                        for sz in ["S", "M", "L", "XL", "XXL"]:
+                            all_specs[sz] = dict(base)
+                    save_data = {"version": 2}
+                    save_data["_common"] = dict(common)
+                    save_data["_uniform"] = all_specs["_uniform"]
+                    for sz in ["S", "M", "L", "XL", "XXL"]:
+                        save_data[sz] = dict(all_specs[sz])
                     sb = _get_sb()
                     if sb:
-                        sb.table("showcard_specs").insert({"spec_json": spec}).execute()
-                    st.session_state["sc_spec"] = spec
+                        sb.table("showcard_specs").insert({"spec_json": save_data}).execute()
+                    st.session_state["sc_specs"] = all_specs
                     st.success("규격 저장 완료! 이후 모든 쇼카드에 적용됩니다.")
                 except Exception as e:
-                    st.session_state["sc_spec"] = spec
+                    st.session_state["sc_specs"] = all_specs
                     st.warning(f"로컬 저장 완료 (DB 저장 실패: {e})")
         with save_col2:
             if st.button("↩️ 기본값으로 초기화", use_container_width=True, key="sp_reset"):
-                st.session_state["sc_spec"] = dict(DEFAULT_SPEC)
+                import copy
+                st.session_state["sc_specs"] = copy.deepcopy(DEFAULT_SPECS)
                 st.rerun()
 
     def _get_showcard_color(category: str) -> str:
@@ -3238,85 +3355,85 @@ elif menu == "🏷️ 쇼카드 제작":
     def _weight_to_svg(w):
         return {"Light": "300", "Regular": "400", "Medium": "500", "Bold": "700", "ExtraBold": "800", "Black": "900"}.get(w, "400")
 
-    def _badge_svg(badge_type: str, x: float, y: float, w_px: float) -> str:
-        """실제 쇼카드 디자인에 맞는 필(pill) 형태 배지 생성"""
+    def _calc_badge_xy(position, w_px, badge_total_w, pad, pad_top):
+        """배지 위치 계산 헬퍼"""
+        if position == "top_center":
+            return ((w_px - badge_total_w) / 2, pad_top)
+        if position == "top_right":
+            return (w_px - badge_total_w - pad, pad_top)
+        return (pad, pad_top)  # top_left (기본값)
+
+    def _badge_svg(badge_type: str, w_px: float, size_spec: dict, common_spec: dict) -> str:
+        """실제 쇼카드 디자인에 맞는 필(pill) 형태 배지 생성 — 위치 자동 계산"""
         if badge_type == "none":
             return ""
         badges = {
             "동일성분": {"text": "동일성분", "text2": "↓ 저렴해요"},
             "유사성분": {"text": "유사성분", "text2": "↓ 저렴해요"},
-            "업그레이드": {"text": "업그레이드", "text2": None},
+            "업그레이드": {"text": "↑ 업그레이드", "text2": None},
         }
         b = badges.get(badge_type)
         if not b:
             return ""
-        fs = _mm2px(spec["badge_font_pt"] * 0.35)  # pt → mm → px 근사
+        fs = _mm2px(size_spec["badge_font_pt"] * 0.35)
         char_w = fs * 0.55
-        bh = _mm2px(spec["badge_height_mm"])
-        br = _mm2px(spec["badge_radius_mm"])
-        gap = _mm2px(spec["badge_gap_mm"])
-        # 첫 번째 배지 (어두운 반투명)
+        bh = _mm2px(size_spec["badge_height_mm"])
+        br = _mm2px(size_spec["badge_radius_mm"])
+        gap = _mm2px(size_spec["badge_gap_mm"])
+        pad = _mm2px(size_spec["padding_lr_mm"])
+        pad_top = _mm2px(size_spec["padding_top_mm"])
+        # 전체 배지 폭 계산 (위치 결정용)
         text1_w = len(b["text"]) * char_w
         bw = text1_w + fs * 1.6
+        total_w = bw
+        bw2 = 0
+        if b["text2"]:
+            text2_w = len(b["text2"]) * char_w
+            bw2 = text2_w + fs * 1.6
+            total_w += gap + bw2
+        position = common_spec.get("badge_position", "top_left")
+        x, y = _calc_badge_xy(position, w_px, total_w, pad, pad_top)
+        # 첫 번째 배지
         svg = (f'<rect x="{x}" y="{y}" width="{bw}" height="{bh}" rx="{br}" fill="rgba(0,0,0,0.35)"/>'
                f'<text x="{x + bw/2}" y="{y + bh*0.72}" text-anchor="middle" fill="white" '
                f'font-size="{fs}" font-weight="700" font-family="sans-serif">{_escape_xml(b["text"])}</text>')
-        # 두 번째 배지 (밝은 반투명)
+        # 두 번째 배지
         if b["text2"]:
             x2 = x + bw + gap
-            text2_w = len(b["text2"]) * char_w
-            bw2 = text2_w + fs * 1.6
             svg += (f'<rect x="{x2}" y="{y}" width="{bw2}" height="{bh}" rx="{br}" fill="rgba(255,255,255,0.25)"/>'
                     f'<text x="{x2 + bw2/2}" y="{y + bh*0.72}" text-anchor="middle" fill="white" '
                     f'font-size="{fs}" font-weight="700" font-family="sans-serif">{_escape_xml(b["text2"])}</text>')
         return svg
 
-    def _badge_svg_upgrade(w_px: float, y: float) -> str:
-        """업그레이드 배지 — 우측 상단 화살표 스타일"""
-        fs = _mm2px(spec["badge_font_pt"] * 0.35)
-        bh = _mm2px(spec["badge_height_mm"])
-        br = _mm2px(spec["badge_radius_mm"])
-        text = "업그레이드"
-        char_w = fs * 0.55
-        bw = len(text) * char_w + fs * 1.6
-        x = w_px - bw - _mm2px(spec["padding_lr_mm"])
-        return (f'<rect x="{x}" y="{y}" width="{bw}" height="{bh}" rx="{br}" fill="rgba(0,0,0,0.35)"/>'
-                f'<text x="{x + bw/2}" y="{y + bh*0.72}" text-anchor="middle" fill="white" '
-                f'font-size="{fs}" font-weight="700" font-family="sans-serif">↑ {_escape_xml(text)}</text>')
-
-    def _gen_design_a(w_px, h_px, bg, badge, l1, l2, l3):
+    def _gen_design_a(w_px, h_px, bg, badge, l1, l2, l3, size_spec, common_spec):
         """디자인 A: 단색 배경 — 규격 기반"""
-        r = _mm2px(spec["corner_radius_mm"])
-        pad = _mm2px(spec["padding_lr_mm"])
-        pad_top = _mm2px(spec["padding_top_mm"])
-        # 폰트 크기 (pt → px 근사, auto_fit으로 폭 초과 시 축소)
-        fs1 = _auto_fit(l1 or "", w_px - pad*2, _mm2px(spec["line1_font_pt"] * 0.35), 8)
-        fs2 = _auto_fit(l2 or "", w_px - pad*2, _mm2px(spec["line2_font_pt"] * 0.35), 7)
-        fs3 = _auto_fit(l3, w_px - pad*2, _mm2px(spec["line3_font_pt"] * 0.35), 10)
-        w1 = _weight_to_svg(spec["line1_weight"])
-        w2 = _weight_to_svg(spec["line2_weight"])
-        w3 = _weight_to_svg(spec["line3_weight"])
-        align = spec["text_align"]
+        r = _mm2px(common_spec["corner_radius_mm"])
+        pad = _mm2px(size_spec["padding_lr_mm"])
+        fs1 = _auto_fit(l1 or "", w_px - pad*2, _mm2px(size_spec["line1_font_pt"] * 0.35), 8)
+        fs2 = _auto_fit(l2 or "", w_px - pad*2, _mm2px(size_spec["line2_font_pt"] * 0.35), 7)
+        fs3 = _auto_fit(l3, w_px - pad*2, _mm2px(size_spec["line3_font_pt"] * 0.35), 10)
+        w1 = _weight_to_svg(size_spec["line1_weight"])
+        w2 = _weight_to_svg(size_spec["line2_weight"])
+        w3 = _weight_to_svg(size_spec["line3_weight"])
+        ff1 = size_spec.get("line1_font_family", "sans-serif")
+        ff2 = size_spec.get("line2_font_family", "sans-serif")
+        ff3 = size_spec.get("line3_font_family", "sans-serif")
+        align = common_spec["text_align"]
         anchor = "middle" if align == "center" else "start"
         tx = w_px / 2 if align == "center" else pad
-        # 배지
-        if badge == "업그레이드":
-            badge_el = _badge_svg_upgrade(w_px, pad_top)
-        else:
-            badge_el = _badge_svg(badge, pad, pad_top, w_px)
-        # 텍스트
+        badge_el = _badge_svg(badge, w_px, size_spec, common_spec)
         lines = []
-        y1 = h_px * spec["line1_y_pct"] / 100
-        y2 = h_px * spec["line2_y_pct"] / 100
-        y3 = h_px * spec["line3_y_pct"] / 100
+        y1 = h_px * size_spec["line1_y_pct"] / 100
+        y2 = h_px * size_spec["line2_y_pct"] / 100
+        y3 = h_px * size_spec["line3_y_pct"] / 100
         if l1:
             lines.append(f'<text x="{tx}" y="{y1}" text-anchor="{anchor}" fill="white" '
-                         f'font-size="{fs1}" font-weight="{w1}" font-family="sans-serif" opacity="0.92">{_escape_xml(l1)}</text>')
+                         f'font-size="{fs1}" font-weight="{w1}" font-family="{ff1}" opacity="0.92">{_escape_xml(l1)}</text>')
         if l2:
             lines.append(f'<text x="{tx}" y="{y2}" text-anchor="{anchor}" fill="white" '
-                         f'font-size="{fs2}" font-weight="{w2}" font-family="sans-serif" opacity="0.85">{_escape_xml(l2)}</text>')
+                         f'font-size="{fs2}" font-weight="{w2}" font-family="{ff2}" opacity="0.85">{_escape_xml(l2)}</text>')
         lines.append(f'<text x="{tx}" y="{y3}" text-anchor="{anchor}" fill="white" '
-                     f'font-size="{fs3}" font-weight="{w3}" font-family="sans-serif">{_escape_xml(l3)}</text>')
+                     f'font-size="{fs3}" font-weight="{w3}" font-family="{ff3}">{_escape_xml(l3)}</text>')
         return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w_px} {h_px}" width="{w_px}" height="{h_px}">'
                 f'<rect width="{w_px}" height="{h_px}" rx="{r}" fill="{bg}"/>'
                 f'{badge_el}'
@@ -3333,56 +3450,54 @@ elif menu == "🏷️ 쇼카드 제작":
         except Exception:
             return True
 
-    def _gen_design_b(w_px, h_px, bg, badge, l1, l2, l3, top_color=None, bot_color=None):
+    def _gen_design_b(w_px, h_px, bg, badge, l1, l2, l3, size_spec, common_spec, top_color=None, bot_color=None):
         """디자인 B: 상하단 컬러 구분 — 규격 기반"""
-        r = _mm2px(spec["corner_radius_mm"])
-        pad = _mm2px(spec["padding_lr_mm"])
-        pad_top = _mm2px(spec["padding_top_mm"])
-        top_h = round(h_px * spec["top_ratio_pct"] / 100)
+        r = _mm2px(common_spec["corner_radius_mm"])
+        pad = _mm2px(size_spec["padding_lr_mm"])
+        pad_top = _mm2px(size_spec["padding_top_mm"])
+        top_h = round(h_px * size_spec["top_ratio_pct"] / 100)
         bot_h = h_px - top_h
         tc = top_color or "#FFFFFF"
         bc = bot_color or bg
         bot_text_fill = "#333" if _is_light(bc) else "#FFFFFF"
-        # 폰트 크기 — 규격 기반
-        fs1 = _auto_fit(l1 or "", w_px - pad*2, _mm2px(spec["line1_font_pt"] * 0.35), 8)
-        fs2 = _auto_fit(l2 or "", w_px - pad*2, _mm2px(spec["line2_font_pt"] * 0.35), 7)
-        fs3 = _auto_fit(l3, w_px - pad*2, _mm2px(spec["line3_font_pt"] * 0.35), 10)
-        w1 = _weight_to_svg(spec["line1_weight"])
-        w2 = _weight_to_svg(spec["line2_weight"])
-        w3 = _weight_to_svg(spec["line3_weight"])
-        align = spec["text_align"]
+        fs1 = _auto_fit(l1 or "", w_px - pad*2, _mm2px(size_spec["line1_font_pt"] * 0.35), 8)
+        fs2 = _auto_fit(l2 or "", w_px - pad*2, _mm2px(size_spec["line2_font_pt"] * 0.35), 7)
+        fs3 = _auto_fit(l3, w_px - pad*2, _mm2px(size_spec["line3_font_pt"] * 0.35), 10)
+        w1 = _weight_to_svg(size_spec["line1_weight"])
+        w2 = _weight_to_svg(size_spec["line2_weight"])
+        w3 = _weight_to_svg(size_spec["line3_weight"])
+        ff1 = size_spec.get("line1_font_family", "sans-serif")
+        ff2 = size_spec.get("line2_font_family", "sans-serif")
+        ff3 = size_spec.get("line3_font_family", "sans-serif")
+        align = common_spec["text_align"]
         anchor = "middle" if align == "center" else "start"
         tx = w_px / 2 if align == "center" else pad
-        # 배지 (상단 영역 안)
+        # 배지 (상단 영역 안) — 위치 계산 포함
         badge_el = ""
         if badge != "none":
-            b_fs = _mm2px(spec["badge_font_pt"] * 0.35)
-            b_bh = _mm2px(spec["badge_height_mm"])
-            b_br = _mm2px(spec["badge_radius_mm"])
+            b_fs = _mm2px(size_spec["badge_font_pt"] * 0.35)
+            b_bh = _mm2px(size_spec["badge_height_mm"])
+            b_br = _mm2px(size_spec["badge_radius_mm"])
             char_w = b_fs * 0.55
-            if badge == "업그레이드":
-                btxt = "↑ 업그레이드"
-            else:
-                btxt = badge
+            btxt = "↑ 업그레이드" if badge == "업그레이드" else badge
             bw = len(btxt) * char_w + b_fs * 1.6
-            badge_el = (f'<rect x="{pad}" y="{pad_top}" width="{bw}" height="{b_bh}" rx="{b_br}" fill="{bc}" opacity="0.85"/>'
-                        f'<text x="{pad + bw/2}" y="{pad_top + b_bh*0.72}" text-anchor="middle" fill="{bot_text_fill}" '
+            bx, by = _calc_badge_xy(common_spec.get("badge_position", "top_left"), w_px, bw, pad, pad_top)
+            badge_el = (f'<rect x="{bx}" y="{by}" width="{bw}" height="{b_bh}" rx="{b_br}" fill="{bc}" opacity="0.85"/>'
+                        f'<text x="{bx + bw/2}" y="{by + b_bh*0.72}" text-anchor="middle" fill="{bot_text_fill}" '
                         f'font-size="{b_fs}" font-weight="700" font-family="sans-serif">{_escape_xml(btxt)}</text>')
         # 하단 영역: Y 위치는 하단 영역 기준으로 재배치
         lines = []
-        # 1줄, 2줄은 하단 영역 내에서 상대 위치
-        bot_y1 = top_h + bot_h * (spec["line1_y_pct"] - spec["top_ratio_pct"]) / (100 - spec["top_ratio_pct"])
-        bot_y2 = top_h + bot_h * (spec["line2_y_pct"] - spec["top_ratio_pct"]) / (100 - spec["top_ratio_pct"])
-        bot_y3 = top_h + bot_h * (spec["line3_y_pct"] - spec["top_ratio_pct"]) / (100 - spec["top_ratio_pct"])
+        bot_y1 = top_h + bot_h * (size_spec["line1_y_pct"] - size_spec["top_ratio_pct"]) / (100 - size_spec["top_ratio_pct"])
+        bot_y2 = top_h + bot_h * (size_spec["line2_y_pct"] - size_spec["top_ratio_pct"]) / (100 - size_spec["top_ratio_pct"])
+        bot_y3 = top_h + bot_h * (size_spec["line3_y_pct"] - size_spec["top_ratio_pct"]) / (100 - size_spec["top_ratio_pct"])
         if l1:
             lines.append(f'<text x="{tx}" y="{bot_y1}" text-anchor="{anchor}" fill="{bot_text_fill}" '
-                         f'font-size="{fs1}" font-weight="{w1}" font-family="sans-serif" opacity="0.92">{_escape_xml(l1)}</text>')
+                         f'font-size="{fs1}" font-weight="{w1}" font-family="{ff1}" opacity="0.92">{_escape_xml(l1)}</text>')
         if l2:
             lines.append(f'<text x="{tx}" y="{bot_y2}" text-anchor="{anchor}" fill="{bot_text_fill}" '
-                         f'font-size="{fs2}" font-weight="{w2}" font-family="sans-serif" opacity="0.85">{_escape_xml(l2)}</text>')
+                         f'font-size="{fs2}" font-weight="{w2}" font-family="{ff2}" opacity="0.85">{_escape_xml(l2)}</text>')
         lines.append(f'<text x="{tx}" y="{bot_y3}" text-anchor="{anchor}" fill="{bot_text_fill}" '
-                     f'font-size="{fs3}" font-weight="{w3}" font-family="sans-serif">{_escape_xml(l3)}</text>')
-        # 상단: 위쪽만 라운드, 아래쪽은 직각
+                     f'font-size="{fs3}" font-weight="{w3}" font-family="{ff3}">{_escape_xml(l3)}</text>')
         top_path = (f'M{r},0 L{w_px-r},0 Q{w_px},0 {w_px},{r} '
                     f'L{w_px},{top_h} L0,{top_h} L0,{r} Q0,0 {r},0 Z')
         return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w_px} {h_px}" width="{w_px}" height="{h_px}">'
@@ -3598,12 +3713,14 @@ elif menu == "🏷️ 쇼카드 제작":
         st.subheader("5️⃣ 디자인 프리뷰")
 
         sz = SHOWCARD_SIZES[sc_size]
-        w_mm, h_mm = sz["w"], spec["card_height_mm"]
+        size_spec = all_specs[sc_size]
+        common_spec = all_specs["_common"]
+        w_mm, h_mm = sz["w"], size_spec["card_height_mm"]
         scale = 3
         w_px, h_px = w_mm * scale, h_mm * scale
 
-        svg_a = _gen_design_a(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3)
-        svg_b = _gen_design_b(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3, top_color=sc_top_color, bot_color=sc_bot_color)
+        svg_a = _gen_design_a(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3, size_spec, common_spec)
+        svg_b = _gen_design_b(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3, size_spec, common_spec, top_color=sc_top_color, bot_color=sc_bot_color)
 
         design_col1, design_col2 = st.columns(2)
         with design_col1:
