@@ -748,13 +748,24 @@ def get_current_placements() -> pd.DataFrame:
     sb = _get_sb()
     if sb:
         try:
-            r = sb.table('shelf_placements').select(
-                '*, shelf_locations!inner(shelf_type, fixture_no, tier, tier_height, display_label)'
-            ).is_('end_date', 'null').execute()
-            if not r.data:
+            all_rows = []
+            offset = 0
+            while True:
+                r = (sb.table('shelf_placements')
+                     .select('*, shelf_locations!inner(shelf_type, fixture_no, tier, tier_height, display_label)')
+                     .is_('end_date', 'null')
+                     .range(offset, offset + 999)
+                     .execute())
+                if not r.data:
+                    break
+                all_rows.extend(r.data)
+                if len(r.data) < 1000:
+                    break
+                offset += 1000
+            if not all_rows:
                 return pd.DataFrame()
             rows = []
-            for p in r.data:
+            for p in all_rows:
                 loc = p.pop('shelf_locations', {})
                 p.update(loc)
                 rows.append(p)
@@ -785,9 +796,18 @@ def get_vacant_locations() -> pd.DataFrame:
     sb = _get_sb()
     if sb:
         try:
-            # 현재 배치된 location id 목록
-            plc_r = sb.table('shelf_placements').select('shelf_location_id').is_('end_date', 'null').execute()
-            used_ids = set(p['shelf_location_id'] for p in (plc_r.data or []))
+            # 현재 배치된 location id 목록 (페이지네이션)
+            all_plc = []
+            off = 0
+            while True:
+                plc_r = sb.table('shelf_placements').select('shelf_location_id').is_('end_date', 'null').range(off, off + 999).execute()
+                if not plc_r.data:
+                    break
+                all_plc.extend(plc_r.data)
+                if len(plc_r.data) < 1000:
+                    break
+                off += 1000
+            used_ids = set(p['shelf_location_id'] for p in all_plc)
             # 전체 활성 위치
             loc_r = sb.table('shelf_locations').select('*').eq('enabled', 1).order('shelf_type').order('fixture_no').order('tier').execute()
             if not loc_r.data:
