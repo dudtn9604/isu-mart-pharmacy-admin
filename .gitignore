@@ -29,3 +29,7 @@ web/.vercel/
 # 세션 로그
 SESSION_LOG.md
 cosmetics-dashboard
+
+# 레이아웃 파일 (API 서버가 런타임에 관리)
+foreon_layout.json
+shelf_layout.json
