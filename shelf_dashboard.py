@@ -123,11 +123,19 @@ def load_sale_cost_records(date_from: str, date_to: str):
 st.sidebar.title("🗄️ 매대 성과 트래킹")
 st.sidebar.markdown("---")
 
+_menu_items = ["🗺️ 매장 배치도", "✏️ 배치 관리", "📊 위치별 성과 분석", "📐 SKU 치수 관리", "🛒 교차판매 분석", "🏷️ 쇼카드 제작", "🏪 포레온 시뮬레이션"]
+_qp = st.query_params
+_saved_menu = _qp.get("menu", _menu_items[0])
+_default_idx = _menu_items.index(_saved_menu) if _saved_menu in _menu_items else 0
+
 menu = st.sidebar.radio(
     "메뉴",
-    ["🗺️ 매장 배치도", "✏️ 배치 관리", "📊 위치별 성과 분석", "📐 SKU 치수 관리", "🛒 교차판매 분석", "🏷️ 쇼카드 제작", "🏪 포레온 시뮬레이션"],
+    _menu_items,
+    index=_default_idx,
     label_visibility="collapsed",
 )
+if _qp.get("menu") != menu:
+    st.query_params["menu"] = menu
 
 # ======================================================================
 # 매장 배치도
@@ -3624,53 +3632,75 @@ elif menu == "🏷️ 쇼카드 제작":
                 f'</svg>')
 
     def _svg_to_pdf_bytes(svg_str: str, w_mm: float, h_mm: float) -> bytes:
-        """SVG → PDF 변환 (svglib + reportlab)"""
+        """SVG → PDF 변환 (순수 reportlab — C 라이브러리 불필요)"""
         from io import BytesIO
-        import tempfile, os
         try:
-            from svglib.svglib import svg2rlg
-            from reportlab.graphics import renderPDF
-            with tempfile.NamedTemporaryFile(suffix=".svg", delete=False, mode="w", encoding="utf-8") as f:
-                f.write(svg_str)
-                svg_path = f.name
-            drawing = svg2rlg(svg_path)
-            os.unlink(svg_path)
-            if drawing:
-                pt_w = (w_mm + 4) * 2.8346
-                pt_h = (h_mm + 4) * 2.8346
-                drawing.width = pt_w
-                drawing.height = pt_h
-                drawing.scale(pt_w / drawing.minWidth(), pt_h / drawing.height)
-                buf = BytesIO()
-                renderPDF.drawToFile(drawing, buf, fmt="PDF")
-                buf.seek(0)
-                return buf.read()
-        except ImportError:
-            pass
-        # Fallback: 간단한 PDF (SVG를 HTML 경유)
-        try:
-            import subprocess, tempfile, os
-            with tempfile.NamedTemporaryFile(suffix=".svg", delete=False, mode="w") as f:
-                f.write(svg_str)
-                svg_path = f.name
-            pdf_path = svg_path.replace(".svg", ".pdf")
-            # cairosvg 시도
-            import cairosvg
-            cairosvg.svg2pdf(url=svg_path, write_to=pdf_path)
-            with open(pdf_path, "rb") as pf:
-                data = pf.read()
-            os.unlink(svg_path)
-            os.unlink(pdf_path)
-            return data
-        except ImportError:
-            pass
-        # 최종 Fallback: 순수 reportlab로 텍스트만
-        try:
-            from reportlab.lib.pagesizes import mm
+            from reportlab.lib.units import mm as rl_mm
             from reportlab.pdfgen import canvas as rl_canvas
+            from reportlab.lib.colors import HexColor, white, Color
+            import re
             buf = BytesIO()
-            c = rl_canvas.Canvas(buf, pagesize=((w_mm + 4) * mm, (h_mm + 4) * mm))
-            c.drawString(10, 10, "쇼카드 — SVG 렌더링 라이브러리를 설치해주세요 (pip install cairosvg)")
+            pw, ph = (w_mm + 4) * rl_mm, (h_mm + 4) * rl_mm
+            c = rl_canvas.Canvas(buf, pagesize=(pw, ph))
+            ox, oy = 2 * rl_mm, 2 * rl_mm  # bleed offset
+            scale = rl_mm / 3  # 3px = 1mm (동일 스케일)
+            # SVG에서 path/rect/text 추출하여 직접 그리기
+            # 1) path fill (배경, 상단부)
+            for m in re.finditer(r'<path d="([^"]+)" fill="([^"]+)"', svg_str):
+                d, fill = m.group(1), m.group(2)
+                try:
+                    c.setFillColor(HexColor(fill))
+                except Exception:
+                    c.setFillColor(HexColor("#FFFFFF"))
+                p = c.beginPath()
+                cmds = re.findall(r'([MLQZ])([\d.,\- ]*)', d)
+                for cmd, args in cmds:
+                    nums = [float(x) for x in re.findall(r'[\d.\-]+', args)]
+                    if cmd == 'M' and len(nums) >= 2:
+                        p.moveTo(ox + nums[0] * scale, oy + ph - 4 * rl_mm - nums[1] * scale)
+                    elif cmd == 'L' and len(nums) >= 2:
+                        p.lineTo(ox + nums[0] * scale, oy + ph - 4 * rl_mm - nums[1] * scale)
+                    elif cmd == 'Q' and len(nums) >= 4:
+                        p.curveTo(ox + nums[0] * scale, oy + ph - 4 * rl_mm - nums[1] * scale,
+                                  ox + nums[0] * scale, oy + ph - 4 * rl_mm - nums[1] * scale,
+                                  ox + nums[2] * scale, oy + ph - 4 * rl_mm - nums[3] * scale)
+                    elif cmd == 'Z':
+                        p.close()
+                c.drawPath(p, fill=1, stroke=0)
+            # 2) rect fill (배지 등)
+            for m in re.finditer(r'<rect x="([^"]*)" y="([^"]*)" width="([^"]*)" height="([^"]*)" rx="([^"]*)" fill="([^"]*)"', svg_str):
+                rx, ry, rw, rh, rrx, rfill = [m.group(i) for i in range(1, 7)]
+                try:
+                    c.setFillColor(HexColor(rfill))
+                except Exception:
+                    try:
+                        # rgba 처리
+                        rgba = re.findall(r'[\d.]+', rfill)
+                        if len(rgba) >= 4:
+                            c.setFillColor(Color(int(rgba[0])/255, int(rgba[1])/255, int(rgba[2])/255, float(rgba[3])))
+                    except Exception:
+                        c.setFillColor(HexColor("#888888"))
+                fx, fy, fw, fh = float(rx)*scale, float(ry)*scale, float(rw)*scale, float(rh)*scale
+                c.roundRect(ox + fx, oy + ph - 4*rl_mm - fy - fh, fw, fh, float(rrx)*scale, fill=1, stroke=0)
+            # 3) text
+            for m in re.finditer(r'<text x="([^"]*)" y="([^"]*)" text-anchor="([^"]*)" fill="([^"]*)" font-size="([^"]*)" font-weight="([^"]*)" font-family="([^"]*)"[^>]*>([^<]*)</text>', svg_str):
+                tx, ty, anchor, tfill, tfs, tw, tf, txt = [m.group(i) for i in range(1, 9)]
+                txt = txt.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"')
+                if not txt.strip():
+                    continue
+                try:
+                    c.setFillColor(HexColor(tfill))
+                except Exception:
+                    c.setFillColor(white)
+                fs_pt = float(tfs) * scale / rl_mm * 72  # px → pt
+                fs_pt = max(4, min(fs_pt, 48))
+                c.setFont("Helvetica-Bold" if int(tw) >= 700 else "Helvetica", fs_pt)
+                pdf_x = ox + float(tx) * scale
+                pdf_y = oy + ph - 4 * rl_mm - float(ty) * scale
+                if anchor == "middle":
+                    c.drawCentredString(pdf_x, pdf_y, txt)
+                else:
+                    c.drawString(pdf_x, pdf_y, txt)
             c.save()
             buf.seek(0)
             return buf.read()

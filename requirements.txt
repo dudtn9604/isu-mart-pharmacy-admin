@@ -6,5 +6,4 @@ requests
 numpy
 supabase
 anthropic
-svglib
 reportlab
