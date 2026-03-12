@@ -45,6 +45,7 @@ from shelf_data import (
     get_fixture_tier_status,
     get_showcard_history,
     save_showcard,
+    _get_sb,
 )
 
 # ──────────────────────────────────────
