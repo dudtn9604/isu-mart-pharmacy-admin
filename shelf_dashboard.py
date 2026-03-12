@@ -3028,11 +3028,6 @@ elif menu == "🏷️ 쇼카드 제작":
         return [k for k in specs if not k.startswith("_")]
 
     # ── 디자인 규격 기본값 (v2: 사이즈별) ──
-    BADGE_POSITIONS = {
-        "top_left": "상단 좌측",
-        "top_center": "상단 중앙",
-        "top_right": "상단 우측",
-    }
     FONT_FAMILIES = [
         "sans-serif",
         "'Noto Sans KR', sans-serif",
@@ -3042,28 +3037,27 @@ elif menu == "🏷️ 쇼카드 제작":
     ]
 
     DEFAULT_COMMON = {
-        "corner_radius_mm": 4.0,
+        "corner_radius_mm": 2.5,
         "text_align": "left",
-        "badge_position": "top_left",
     }
 
-    # ── PDF 규격 기반 기본 템플릿 ──
+    # ── PDF 규격 기반 기본 템플릿 (수정본 0312) ──
     _SHORT_BASE = {
-        "card_width_mm": 70, "card_height_mm": 34,
-        "padding_lr_mm": 2.0, "padding_top_mm": 2.0, "padding_bottom_mm": 12.5,
-        "badge_height_mm": 5.0, "badge_radius_mm": 4.0, "badge_font_pt": 6.0, "badge_gap_mm": 3.0,
-        "line1_font_pt": 6.0, "line1_weight": "Regular", "line1_font_family": "sans-serif", "line1_y_pct": 32,
-        "line2_font_pt": 8.5, "line2_weight": "Regular", "line2_font_family": "sans-serif", "line2_y_pct": 70,
-        "line3_font_pt": 12.0, "line3_weight": "ExtraBold", "line3_font_family": "sans-serif", "line3_y_pct": 52,
+        "card_width_mm": 70, "card_height_mm": 85,
+        "padding_lr_mm": 2.5, "padding_top_mm": 2.0, "padding_bottom_mm": 31.0,
+        "header_height_mm": 12.5, "header_corner_mm": 10.0, "header_body_gap_mm": 9.7,
+        "line1_font_pt": 15.0, "line1_weight": "Regular", "line1_font_family": "sans-serif", "line1_y_pct": 29,
+        "line2_font_pt": 21.0, "line2_weight": "Regular", "line2_font_family": "sans-serif", "line2_y_pct": 56,
+        "line3_font_pt": 30.0, "line3_weight": "ExtraBold", "line3_font_family": "sans-serif", "line3_y_pct": 45,
         "top_ratio_pct": 15,
     }
     _LONG_BASE = {
-        "card_width_mm": 110, "card_height_mm": 32,
-        "padding_lr_mm": 3.0, "padding_top_mm": 2.0, "padding_bottom_mm": 12.5,
-        "badge_height_mm": 5.5, "badge_radius_mm": 4.0, "badge_font_pt": 6.0, "badge_gap_mm": 3.7,
-        "line1_font_pt": 6.0, "line1_weight": "Regular", "line1_font_family": "sans-serif", "line1_y_pct": 30,
-        "line2_font_pt": 8.5, "line2_weight": "Regular", "line2_font_family": "sans-serif", "line2_y_pct": 68,
-        "line3_font_pt": 15.0, "line3_weight": "ExtraBold", "line3_font_family": "sans-serif", "line3_y_pct": 48,
+        "card_width_mm": 110, "card_height_mm": 78.5,
+        "padding_lr_mm": 3.0, "padding_top_mm": 2.0, "padding_bottom_mm": 31.0,
+        "header_height_mm": 13.5, "header_corner_mm": 9.0, "header_body_gap_mm": 9.0,
+        "line1_font_pt": 15.0, "line1_weight": "Regular", "line1_font_family": "sans-serif", "line1_y_pct": 30,
+        "line2_font_pt": 20.0, "line2_weight": "Regular", "line2_font_family": "sans-serif", "line2_y_pct": 58,
+        "line3_font_pt": 36.0, "line3_weight": "ExtraBold", "line3_font_family": "sans-serif", "line3_y_pct": 45,
         "top_ratio_pct": 17,
     }
 
@@ -3082,27 +3076,42 @@ elif menu == "🏷️ 쇼카드 제작":
         "L5": {**_LONG_BASE, "card_width_mm": 240},
     }
 
+    # badge_* → header_* 필드 마이그레이션 헬퍼
+    _BADGE_TO_HEADER = {
+        "badge_height_mm": "header_height_mm",
+        "badge_radius_mm": "header_corner_mm",
+        "badge_gap_mm": "header_body_gap_mm",
+    }
+
+    def _migrate_badge_fields(spec_dict):
+        """구 badge_* 필드를 header_* 로 변환 (in-place)"""
+        for old_k, new_k in _BADGE_TO_HEADER.items():
+            if old_k in spec_dict and new_k not in spec_dict:
+                spec_dict[new_k] = spec_dict.pop(old_k)
+            elif old_k in spec_dict:
+                del spec_dict[old_k]
+        # badge_font_pt 제거 (더 이상 스펙에서 관리하지 않음)
+        spec_dict.pop("badge_font_pt", None)
+        return spec_dict
+
     # v1 → v2 마이그레이션
     def _migrate_spec_v1_to_v2(old_spec):
         """v1(단일 dict) → v2(사이즈별) 자동 변환"""
         try:
             common = {
-                "corner_radius_mm": old_spec.get("corner_radius_mm", 3.0),
-                "text_align": old_spec.get("text_align", "center"),
-                "badge_position": old_spec.get("badge_position", "top_left"),
+                "corner_radius_mm": old_spec.get("corner_radius_mm", 2.5),
+                "text_align": old_spec.get("text_align", "left"),
             }
-            size_keys = [k for k in DEFAULT_SIZE_SPEC]
             size_data = {}
-            for k in size_keys:
+            for k in DEFAULT_SIZE_SPEC:
                 size_data[k] = old_spec.get(k, DEFAULT_SIZE_SPEC[k])
-            # font_family 키가 없으면 추가
             for n in [1, 2, 3]:
                 ff_key = f"line{n}_font_family"
                 if ff_key not in size_data:
                     size_data[ff_key] = "sans-serif"
-            # card_width_mm, padding_bottom_mm 누락 시 기본값
             if "padding_bottom_mm" not in size_data:
-                size_data["padding_bottom_mm"] = 2.5
+                size_data["padding_bottom_mm"] = 31.0
+            _migrate_badge_fields(size_data)
             new_specs = {"_common": common, "_uniform": True, "_size_order": ["S", "M", "L", "XL", "XXL"]}
             sz_widths = {"S": 54, "M": 70, "L": 90, "XL": 110, "XXL": 150}
             for sz in ["S", "M", "L", "XL", "XXL"]:
@@ -3133,11 +3142,12 @@ elif menu == "🏷️ 쇼카드 제작":
                 if not size_keys:
                     size_keys = ["S", "M", "L", "XL", "XXL"]
                     v2["_size_order"] = size_keys
-                # 각 사이즈 누락 키 보충
+                # 각 사이즈 누락 키 보충 + badge→header 마이그레이션
                 for sz in size_keys:
                     if sz not in v2:
                         v2[sz] = dict(DEFAULT_SIZE_SPEC)
                     else:
+                        _migrate_badge_fields(v2[sz])
                         v2[sz] = {**DEFAULT_SIZE_SPEC, **v2[sz]}
                 if "_common" not in v2:
                     v2["_common"] = dict(DEFAULT_COMMON)
@@ -3164,8 +3174,6 @@ elif menu == "🏷️ 쇼카드 제작":
 
         common = all_specs["_common"]
         weight_options = ["Light", "Regular", "Medium", "Bold", "ExtraBold", "Black"]
-        badge_pos_keys = list(BADGE_POSITIONS.keys())
-        badge_pos_labels = list(BADGE_POSITIONS.values())
 
         # 전체 동일 적용 체크박스
         is_uniform = st.checkbox("전체 사이즈에 동일 적용", value=all_specs.get("_uniform", True), key="sp_uniform")
@@ -3193,18 +3201,14 @@ elif menu == "🏷️ 쇼카드 제작":
                 sp["padding_bottom_mm"] = st.number_input("하단 필수 여백 (mm)", 0.0, 20.0, float(sp.get("padding_bottom_mm", 12.5)), 0.5, key=f"sp_pb_{sfx}")
 
             with spec_c2:
-                st.markdown("**배지 (헤더)**")
-                sp["badge_height_mm"] = st.number_input("헤더 높이 (mm)", 2.0, 12.0, float(sp["badge_height_mm"]), 0.5, key=f"sp_bh_{sfx}")
-                sp["badge_radius_mm"] = st.number_input("헤더 모퉁이 (mm)", 0.0, 10.0, float(sp["badge_radius_mm"]), 0.5, key=f"sp_br_{sfx}")
-                sp["badge_font_pt"] = st.number_input("키워드 폰트 (pt)", 4.0, 14.0, float(sp["badge_font_pt"]), 0.5, key=f"sp_bf_{sfx}")
-                sp["badge_gap_mm"] = st.number_input("헤더-본문 간격 (mm)", 0.5, 8.0, float(sp["badge_gap_mm"]), 0.5, key=f"sp_bg_{sfx}")
-                cur_pos_idx = badge_pos_keys.index(common.get("badge_position", "top_left")) if common.get("badge_position", "top_left") in badge_pos_keys else 0
-                sel_pos = st.selectbox("배지 위치", badge_pos_keys, index=cur_pos_idx, format_func=lambda x: BADGE_POSITIONS[x], key=f"sp_bpos_{sfx}")
-                common["badge_position"] = sel_pos
+                st.markdown("**헤더 (상단부)**")
+                sp["header_height_mm"] = st.number_input("헤더 높이 (mm)", 2.0, 30.0, float(sp.get("header_height_mm", 13.5)), 0.5, key=f"sp_hh_{sfx}")
+                sp["header_corner_mm"] = st.number_input("헤더 모퉁이 (mm)", 0.0, 20.0, float(sp.get("header_corner_mm", 9.0)), 0.5, key=f"sp_hc_{sfx}")
+                sp["header_body_gap_mm"] = st.number_input("헤더-본문 간격 (mm)", 0.0, 20.0, float(sp.get("header_body_gap_mm", 9.0)), 0.5, key=f"sp_hg_{sfx}")
 
             # top_ratio_pct 자동 계산 (Design B용)
             if sp["card_height_mm"] > 0:
-                sp["top_ratio_pct"] = round(sp["badge_height_mm"] / sp["card_height_mm"] * 100)
+                sp["top_ratio_pct"] = round(sp.get("header_height_mm", 13.5) / sp["card_height_mm"] * 100)
 
             st.markdown("---")
             st.markdown("**텍스트 규격**")
@@ -3389,16 +3393,8 @@ elif menu == "🏷️ 쇼카드 제작":
     def _weight_to_svg(w):
         return {"Light": "300", "Regular": "400", "Medium": "500", "Bold": "700", "ExtraBold": "800", "Black": "900"}.get(w, "400")
 
-    def _calc_badge_xy(position, w_px, badge_total_w, pad, pad_top):
-        """배지 위치 계산 헬퍼"""
-        if position == "top_center":
-            return ((w_px - badge_total_w) / 2, pad_top)
-        if position == "top_right":
-            return (w_px - badge_total_w - pad, pad_top)
-        return (pad, pad_top)  # top_left (기본값)
-
     def _badge_svg(badge_type: str, w_px: float, size_spec: dict, common_spec: dict) -> str:
-        """실제 쇼카드 디자인에 맞는 필(pill) 형태 배지 생성 — 위치 자동 계산"""
+        """필(pill) 형태 배지 생성 — 배지는 규격에서 제외, 하드코딩 기본값 사용"""
         if badge_type == "none":
             return ""
         badges = {
@@ -3409,11 +3405,16 @@ elif menu == "🏷️ 쇼카드 제작":
         b = badges.get(badge_type)
         if not b:
             return ""
-        fs = _mm2px(size_spec["badge_font_pt"] * 0.35)
+        # 배지 고정값 (규격에서 제외됨)
+        _BADGE_FONT_PT = 11.0
+        _BADGE_HEIGHT_MM = 5.5
+        _BADGE_RADIUS_MM = 3.0
+        _BADGE_GAP_MM = 2.0
+        fs = _mm2px(_BADGE_FONT_PT * 0.35)
         char_w = fs * 0.55
-        bh = _mm2px(size_spec["badge_height_mm"])
-        br = _mm2px(size_spec["badge_radius_mm"])
-        gap = _mm2px(size_spec["badge_gap_mm"])
+        bh = _mm2px(_BADGE_HEIGHT_MM)
+        br = _mm2px(_BADGE_RADIUS_MM)
+        gap = _mm2px(_BADGE_GAP_MM)
         pad = _mm2px(size_spec["padding_lr_mm"])
         pad_top = _mm2px(size_spec["padding_top_mm"])
         # 전체 배지 폭 계산 (위치 결정용)
@@ -3425,8 +3426,7 @@ elif menu == "🏷️ 쇼카드 제작":
             text2_w = len(b["text2"]) * char_w
             bw2 = text2_w + fs * 1.6
             total_w += gap + bw2
-        position = common_spec.get("badge_position", "top_left")
-        x, y = _calc_badge_xy(position, w_px, total_w, pad, pad_top)
+        x, y = pad, pad_top  # 배지는 항상 좌측 상단 고정
         # 첫 번째 배지
         svg = (f'<rect x="{x}" y="{y}" width="{bw}" height="{bh}" rx="{br}" fill="rgba(0,0,0,0.35)"/>'
                f'<text x="{x + bw/2}" y="{y + bh*0.72}" text-anchor="middle" fill="white" '
@@ -3506,16 +3506,19 @@ elif menu == "🏷️ 쇼카드 제작":
         align = common_spec["text_align"]
         anchor = "middle" if align == "center" else "start"
         tx = w_px / 2 if align == "center" else pad
-        # 배지 (상단 영역 안) — 위치 계산 포함
+        # 배지 (상단 영역 안) — 하드코딩 기본값 사용
         badge_el = ""
         if badge != "none":
-            b_fs = _mm2px(size_spec["badge_font_pt"] * 0.35)
-            b_bh = _mm2px(size_spec["badge_height_mm"])
-            b_br = _mm2px(size_spec["badge_radius_mm"])
+            _BADGE_FONT_PT = 11.0
+            _BADGE_HEIGHT_MM = 5.5
+            _BADGE_RADIUS_MM = 3.0
+            b_fs = _mm2px(_BADGE_FONT_PT * 0.35)
+            b_bh = _mm2px(_BADGE_HEIGHT_MM)
+            b_br = _mm2px(_BADGE_RADIUS_MM)
             char_w = b_fs * 0.55
             btxt = "↑ 업그레이드" if badge == "업그레이드" else badge
             bw = len(btxt) * char_w + b_fs * 1.6
-            bx, by = _calc_badge_xy(common_spec.get("badge_position", "top_left"), w_px, bw, pad, pad_top)
+            bx, by = pad, pad_top  # 배지는 항상 좌측 상단 고정
             badge_el = (f'<rect x="{bx}" y="{by}" width="{bw}" height="{b_bh}" rx="{b_br}" fill="{bc}" opacity="0.85"/>'
                         f'<text x="{bx + bw/2}" y="{by + b_bh*0.72}" text-anchor="middle" fill="{bot_text_fill}" '
                         f'font-size="{b_fs}" font-weight="700" font-family="sans-serif">{_escape_xml(btxt)}</text>')
