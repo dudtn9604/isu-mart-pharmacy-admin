@@ -3871,81 +3871,80 @@ elif menu == "🏪 포레온 시뮬레이션":
         "D": {"name": "벽면매대", "width": 90.0, "tiers": [25, 25, 25, 25, 25, 25]},
     }
 
-    # ── session_state 초기화 (저장된 레이아웃 파일 우선) ──
-    if "foreon_fixtures" not in st.session_state:
-        _saved_foreon = None
-        if FOREON_LAYOUT_FILE.exists():
-            try:
-                with open(str(FOREON_LAYOUT_FILE), "r", encoding="utf-8") as f:
-                    _saved_foreon = _json.load(f)
-            except Exception:
-                pass
+    # ── session_state 초기화 (항상 저장 파일에서 로드) ──
+    _saved_foreon = None
+    if FOREON_LAYOUT_FILE.exists():
+        try:
+            with open(str(FOREON_LAYOUT_FILE), "r", encoding="utf-8") as f:
+                _saved_foreon = _json.load(f)
+        except Exception:
+            pass
 
-        if _saved_foreon and _saved_foreon.get("fixtures"):
-            st.session_state.foreon_fixtures = _saved_foreon["fixtures"]
-            st.session_state.foreon_facilities = _saved_foreon.get("facilities", [])
-        else:
-            # 자동 배치로 초기 매대 생성
-            def _init_foreon_fixtures(num_a=21, num_b=15, num_c=14):
-                fxs = []
-                margin_back = 2600
-                margin_left = 4200
-                shelf_w = 900
-                shelf_d = 360
-                gap = 40
-                gondola_pair_w = shelf_d * 2 + gap
-                aisle_w = 1200
-                col_pitch = gondola_pair_w + aisle_w
-                avail_w = FOREON_W - margin_left - 1800
-                avail_h = FOREON_H - 1800 - margin_back
-                shelves_per_col = max(1, int(avail_h / shelf_w))
-                max_cols = max(1, int(avail_w / col_pitch))
-                a_placed = b_placed = c_placed = 0
-                ab_total = num_a + num_b
-                for ci in range(max_cols):
+    if _saved_foreon and _saved_foreon.get("fixtures"):
+        st.session_state.foreon_fixtures = _saved_foreon["fixtures"]
+        st.session_state.foreon_facilities = _saved_foreon.get("facilities", [])
+    elif "foreon_fixtures" not in st.session_state:
+        # 파일도 없고 세션에도 없을 때 — 자동 배치로 초기 매대 생성
+        def _init_foreon_fixtures(num_a=21, num_b=15, num_c=14):
+            fxs = []
+            margin_back = 2600
+            margin_left = 4200
+            shelf_w = 900
+            shelf_d = 360
+            gap = 40
+            gondola_pair_w = shelf_d * 2 + gap
+            aisle_w = 1200
+            col_pitch = gondola_pair_w + aisle_w
+            avail_w = FOREON_W - margin_left - 1800
+            avail_h = FOREON_H - 1800 - margin_back
+            shelves_per_col = max(1, int(avail_h / shelf_w))
+            max_cols = max(1, int(avail_w / col_pitch))
+            a_placed = b_placed = c_placed = 0
+            ab_total = num_a + num_b
+            for ci in range(max_cols):
+                if (a_placed + b_placed) >= ab_total:
+                    break
+                col_x = margin_left + ci * col_pitch
+                for side in range(2):
                     if (a_placed + b_placed) >= ab_total:
                         break
-                    col_x = margin_left + ci * col_pitch
-                    for side in range(2):
+                    x = col_x + side * (shelf_d + gap)
+                    for row in range(shelves_per_col):
                         if (a_placed + b_placed) >= ab_total:
                             break
-                        x = col_x + side * (shelf_d + gap)
-                        for row in range(shelves_per_col):
-                            if (a_placed + b_placed) >= ab_total:
-                                break
-                            y = margin_back + row * shelf_w
-                            if a_placed < num_a:
-                                a_placed += 1
-                                fxs.append({"id": f"A-{a_placed}", "type": "A", "no": a_placed,
-                                            "x": x, "y": y, "orient": "V", "zone": "", "label": ""})
-                            elif b_placed < num_b:
-                                b_placed += 1
-                                fxs.append({"id": f"B-{b_placed}", "type": "B", "no": b_placed,
-                                            "x": x, "y": y, "orient": "V", "zone": "", "label": ""})
-                    # C 엔드캡
-                    ecx = col_x + gondola_pair_w // 2 - 636 // 2
-                    if c_placed < num_c:
-                        c_placed += 1
-                        fxs.append({"id": f"C-{c_placed}", "type": "C", "no": c_placed,
-                                    "x": ecx, "y": margin_back - 400, "orient": "H", "zone": "", "label": ""})
-                    if c_placed < num_c:
-                        c_placed += 1
-                        fxs.append({"id": f"C-{c_placed}", "type": "C", "no": c_placed,
-                                    "x": ecx, "y": margin_back + shelves_per_col * shelf_w + 40,
-                                    "orient": "H", "zone": "", "label": ""})
-                return fxs
+                        y = margin_back + row * shelf_w
+                        if a_placed < num_a:
+                            a_placed += 1
+                            fxs.append({"id": f"A-{a_placed}", "type": "A", "no": a_placed,
+                                        "x": x, "y": y, "orient": "V", "zone": "", "label": ""})
+                        elif b_placed < num_b:
+                            b_placed += 1
+                            fxs.append({"id": f"B-{b_placed}", "type": "B", "no": b_placed,
+                                        "x": x, "y": y, "orient": "V", "zone": "", "label": ""})
+                # C 엔드캡
+                ecx = col_x + gondola_pair_w // 2 - 636 // 2
+                if c_placed < num_c:
+                    c_placed += 1
+                    fxs.append({"id": f"C-{c_placed}", "type": "C", "no": c_placed,
+                                "x": ecx, "y": margin_back - 400, "orient": "H", "zone": "", "label": ""})
+                if c_placed < num_c:
+                    c_placed += 1
+                    fxs.append({"id": f"C-{c_placed}", "type": "C", "no": c_placed,
+                                "x": ecx, "y": margin_back + shelves_per_col * shelf_w + 40,
+                                "orient": "H", "zone": "", "label": ""})
+            return fxs
 
-            st.session_state.foreon_fixtures = _init_foreon_fixtures()
-            st.session_state.foreon_facilities = [
-                {"id": "fac-1", "name": "입구", "x": FOREON_W - 3500, "y": FOREON_H - 500, "w": 2500, "h": 500, "label": ""},
-                {"id": "fac-2", "name": "POS", "x": 400, "y": FOREON_H - 1600, "w": 1800, "h": 1000, "label": ""},
-                {"id": "fac-3", "name": "조제실", "x": 200, "y": 200, "w": 3500, "h": 2200, "label": ""},
-                {"id": "fac-4", "name": "약품 수납장", "x": 3900, "y": 200, "w": 3000, "h": 1200, "label": ""},
-                {"id": "fac-5", "name": "냉장고", "x": FOREON_W - 1500, "y": 200, "w": 1300, "h": 3000, "label": ""},
-                {"id": "fac-6", "name": "창고", "x": FOREON_W - 1500, "y": 3400, "w": 1300, "h": 2000, "label": ""},
-                {"id": "fac-7", "name": "프로모션 존", "x": 8000, "y": FOREON_H - 1400, "w": 3000, "h": 1000, "label": ""},
-                {"id": "fac-8", "name": "대기 공간", "x": 18000, "y": FOREON_H - 1400, "w": 2000, "h": 1000, "label": ""},
-            ]
+        st.session_state.foreon_fixtures = _init_foreon_fixtures()
+        st.session_state.foreon_facilities = [
+            {"id": "fac-1", "name": "입구", "x": FOREON_W - 3500, "y": FOREON_H - 500, "w": 2500, "h": 500, "label": ""},
+            {"id": "fac-2", "name": "POS", "x": 400, "y": FOREON_H - 1600, "w": 1800, "h": 1000, "label": ""},
+            {"id": "fac-3", "name": "조제실", "x": 200, "y": 200, "w": 3500, "h": 2200, "label": ""},
+            {"id": "fac-4", "name": "약품 수납장", "x": 3900, "y": 200, "w": 3000, "h": 1200, "label": ""},
+            {"id": "fac-5", "name": "냉장고", "x": FOREON_W - 1500, "y": 200, "w": 1300, "h": 3000, "label": ""},
+            {"id": "fac-6", "name": "창고", "x": FOREON_W - 1500, "y": 3400, "w": 1300, "h": 2000, "label": ""},
+            {"id": "fac-7", "name": "프로모션 존", "x": 8000, "y": FOREON_H - 1400, "w": 3000, "h": 1000, "label": ""},
+            {"id": "fac-8", "name": "대기 공간", "x": 18000, "y": FOREON_H - 1400, "w": 2000, "h": 1000, "label": ""},
+        ]
 
     # 이수점 배치 데이터를 포레온 시뮬레이션 초기값으로 복사
     if "foreon_placements" not in st.session_state:
