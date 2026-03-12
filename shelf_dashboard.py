@@ -3428,33 +3428,32 @@ elif menu == "🏷️ 쇼카드 제작":
         return {"Light": "300", "Regular": "400", "Medium": "500", "Bold": "700", "ExtraBold": "800", "Black": "900"}.get(w, "400")
 
     def _calc_text_positions(h_px, size_spec, l1, l2, l3):
-        """mm 기반 텍스트 Y 위치 자동 배치"""
+        """mm 기반 텍스트 Y 위치 자동 배치 — 폰트 크기 고려"""
         content_top = _mm2px(size_spec.get("header_height_mm", 13.5) + size_spec.get("header_body_gap_mm", 9.0))
         content_bottom = h_px - _mm2px(size_spec.get("padding_bottom_mm", 31.0))
         available = max(content_bottom - content_top, 1)
-        has_l1 = bool(l1)
-        has_l2 = bool(l2)
-        # l3 always present
-        if has_l1 and has_l2:
-            # 3줄
-            y1 = content_top + available * 0.25
-            y2 = content_top + available * 0.50
-            y3 = content_top + available * 0.75
-        elif has_l2:
-            # 2줄 (l2+l3)
-            y1 = 0
-            y2 = content_top + available * 0.35
-            y3 = content_top + available * 0.70
-        elif has_l1:
-            # 2줄 (l1+l3)
-            y1 = content_top + available * 0.35
-            y2 = 0
-            y3 = content_top + available * 0.70
-        else:
-            # 1줄 (l3만)
-            y1, y2 = 0, 0
-            y3 = content_top + available * 0.55
-        return y1, y2, y3
+        # 활성 라인 수집 (이름, 폰트크기px)
+        active = []
+        if l1:
+            active.append(("l1", _mm2px(size_spec["line1_font_pt"] * 0.35)))
+        if l2:
+            active.append(("l2", _mm2px(size_spec["line2_font_pt"] * 0.35)))
+        active.append(("l3", _mm2px(size_spec["line3_font_pt"] * 0.35)))
+        # 블록 높이 계산: 각 폰트 높이 + 줄 간격(인접 폰트 중 큰 값의 50%)
+        LINE_GAP_RATIO = 0.5
+        total_h = sum(fs for _, fs in active)
+        for i in range(len(active) - 1):
+            total_h += max(active[i][1], active[i + 1][1]) * LINE_GAP_RATIO
+        # 블록을 콘텐츠 영역 중앙에 배치
+        start_y = content_top + (available - total_h) / 2
+        positions = {"l1": 0, "l2": 0, "l3": 0}
+        cur_y = start_y
+        for i, (name, fs) in enumerate(active):
+            positions[name] = cur_y + fs * 0.8  # baseline ≈ ascent 80%
+            cur_y += fs
+            if i < len(active) - 1:
+                cur_y += max(fs, active[i + 1][1]) * LINE_GAP_RATIO
+        return positions["l1"], positions["l2"], positions["l3"]
 
     def _badge_svg(badge_type: str, w_px: float, size_spec: dict, common_spec: dict) -> str:
         """필(pill) 형태 배지 생성 — 배지는 규격에서 제외, 하드코딩 기본값 사용"""
