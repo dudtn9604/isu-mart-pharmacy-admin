@@ -3246,11 +3246,12 @@ elif menu == "🏷️ 쇼카드 제작":
                 with tab:
                     _render_size_spec_ui(sz, all_specs[sz])
 
-        # ── 규격 추가 / 삭제 ──
+        # ── 규격 추가 / 삭제 / 이름 변경 ──
         st.markdown("---")
         st.markdown("**규격 타입 관리**")
-        add_col, del_col = st.columns(2)
-        with add_col:
+        mgmt_c1, mgmt_c2, mgmt_c3 = st.columns(3)
+        with mgmt_c1:
+            st.markdown("*추가*")
             if len(cur_sizes) >= MAX_SPEC_SIZES:
                 st.caption(f"최대 {MAX_SPEC_SIZES}개까지 가능합니다.")
             else:
@@ -3264,11 +3265,35 @@ elif menu == "🏷️ 쇼카드 제작":
                     else:
                         all_specs[name] = dict(DEFAULT_SIZE_SPEC)
                         if "_size_order" not in all_specs:
-                            all_specs["_size_order"] = cur_sizes
+                            all_specs["_size_order"] = list(cur_sizes)
                         all_specs["_size_order"].append(name)
                         st.session_state["sc_specs"] = all_specs
                         st.rerun()
-        with del_col:
+        with mgmt_c2:
+            st.markdown("*이름 변경*")
+            rename_target = st.selectbox("변경할 규격", cur_sizes, key="sp_rename_target")
+            rename_new = st.text_input("새 이름", placeholder="변경할 이름 입력", key="sp_rename_new")
+            if st.button("✏️ 이름 변경", use_container_width=True, key="sp_rename"):
+                new_n = rename_new.strip()
+                if not new_n:
+                    st.warning("새 이름을 입력해주세요.")
+                elif new_n == rename_target:
+                    st.info("동일한 이름입니다.")
+                elif new_n in all_specs or new_n.startswith("_"):
+                    st.warning(f"'{new_n}' 이름은 이미 존재하거나 사용할 수 없습니다.")
+                else:
+                    # 데이터 이동
+                    all_specs[new_n] = all_specs.pop(rename_target)
+                    # _size_order 업데이트
+                    if "_size_order" in all_specs:
+                        order = all_specs["_size_order"]
+                        idx = order.index(rename_target) if rename_target in order else -1
+                        if idx >= 0:
+                            order[idx] = new_n
+                    st.session_state["sc_specs"] = all_specs
+                    st.rerun()
+        with mgmt_c3:
+            st.markdown("*삭제*")
             if len(cur_sizes) <= 1:
                 st.caption("최소 1개 규격은 유지해야 합니다.")
             else:
