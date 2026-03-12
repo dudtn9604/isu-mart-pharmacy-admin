@@ -3624,21 +3624,27 @@ elif menu == "🏷️ 쇼카드 제작":
                 f'</svg>')
 
     def _svg_to_pdf_bytes(svg_str: str, w_mm: float, h_mm: float) -> bytes:
-        """SVG → PDF 변환 (reportlab 사용)"""
+        """SVG → PDF 변환 (svglib + reportlab)"""
         from io import BytesIO
+        import tempfile, os
         try:
-            from svglib.svglib import renderSVG
+            from svglib.svglib import svg2rlg
             from reportlab.graphics import renderPDF
-            drawing = renderSVG(BytesIO(svg_str.encode("utf-8")))
-            # 실제 mm → 포인트 (1mm = 2.8346pt)
-            pt_w = (w_mm + 4) * 2.8346  # +4 for bleed
-            pt_h = (h_mm + 4) * 2.8346
-            drawing.width = pt_w
-            drawing.height = pt_h
-            buf = BytesIO()
-            renderPDF.drawToFile(drawing, buf, fmt="PDF")
-            buf.seek(0)
-            return buf.read()
+            with tempfile.NamedTemporaryFile(suffix=".svg", delete=False, mode="w", encoding="utf-8") as f:
+                f.write(svg_str)
+                svg_path = f.name
+            drawing = svg2rlg(svg_path)
+            os.unlink(svg_path)
+            if drawing:
+                pt_w = (w_mm + 4) * 2.8346
+                pt_h = (h_mm + 4) * 2.8346
+                drawing.width = pt_w
+                drawing.height = pt_h
+                drawing.scale(pt_w / drawing.minWidth(), pt_h / drawing.height)
+                buf = BytesIO()
+                renderPDF.drawToFile(drawing, buf, fmt="PDF")
+                buf.seek(0)
+                return buf.read()
         except ImportError:
             pass
         # Fallback: 간단한 PDF (SVG를 HTML 경유)
