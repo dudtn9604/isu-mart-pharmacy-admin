@@ -3144,11 +3144,11 @@ elif menu == "🏷️ 쇼카드 제작":
     DEFAULT_SPECS = {
         "_common": dict(DEFAULT_COMMON),
         "_uniform": True,
-        "S": {**DEFAULT_SIZE_SPEC, "card_height_mm": 55, "line1_font_pt": 8.0, "line2_font_pt": 7.0, "line3_font_pt": 16.0, "badge_font_pt": 6.0, "badge_height_mm": 4.0},
-        "M": {**DEFAULT_SIZE_SPEC, "card_height_mm": 60, "line1_font_pt": 9.0, "line2_font_pt": 8.0, "line3_font_pt": 18.0},
-        "L": {**DEFAULT_SIZE_SPEC},
-        "XL": {**DEFAULT_SIZE_SPEC, "card_height_mm": 70, "line1_font_pt": 11.0, "line2_font_pt": 10.0, "line3_font_pt": 22.0, "badge_font_pt": 8.0, "badge_height_mm": 5.5},
-        "XXL": {**DEFAULT_SIZE_SPEC, "card_height_mm": 80, "line1_font_pt": 12.0, "line2_font_pt": 11.0, "line3_font_pt": 24.0, "badge_font_pt": 9.0, "badge_height_mm": 6.0, "badge_gap_mm": 2.0},
+        "S": {**DEFAULT_SIZE_SPEC, "card_width_mm": 54, "card_height_mm": 55, "line1_font_pt": 8.0, "line2_font_pt": 7.0, "line3_font_pt": 16.0, "badge_font_pt": 6.0, "badge_height_mm": 4.0},
+        "M": {**DEFAULT_SIZE_SPEC, "card_width_mm": 70, "card_height_mm": 60, "line1_font_pt": 9.0, "line2_font_pt": 8.0, "line3_font_pt": 18.0},
+        "L": {**DEFAULT_SIZE_SPEC, "card_width_mm": 90},
+        "XL": {**DEFAULT_SIZE_SPEC, "card_width_mm": 110, "card_height_mm": 70, "line1_font_pt": 11.0, "line2_font_pt": 10.0, "line3_font_pt": 22.0, "badge_font_pt": 8.0, "badge_height_mm": 5.5},
+        "XXL": {**DEFAULT_SIZE_SPEC, "card_width_mm": 150, "card_height_mm": 80, "line1_font_pt": 12.0, "line2_font_pt": 11.0, "line3_font_pt": 24.0, "badge_font_pt": 9.0, "badge_height_mm": 6.0, "badge_gap_mm": 2.0},
     }
 
     # v1 → v2 마이그레이션
@@ -3169,9 +3169,15 @@ elif menu == "🏷️ 쇼카드 제작":
                 ff_key = f"line{n}_font_family"
                 if ff_key not in size_data:
                     size_data[ff_key] = "sans-serif"
+            # card_width_mm, padding_bottom_mm 누락 시 기본값
+            if "padding_bottom_mm" not in size_data:
+                size_data["padding_bottom_mm"] = 2.5
             new_specs = {"_common": common, "_uniform": True}
+            sz_widths = {"S": 54, "M": 70, "L": 90, "XL": 110, "XXL": 150}
             for sz in ["S", "M", "L", "XL", "XXL"]:
-                new_specs[sz] = dict(size_data)
+                sz_data = dict(size_data)
+                sz_data["card_width_mm"] = old_spec.get("card_width_mm", sz_widths[sz])
+                new_specs[sz] = sz_data
             return new_specs
         except Exception:
             return None
@@ -3233,10 +3239,12 @@ elif menu == "🏷️ 쇼카드 제작":
             spec_c1, spec_c2, spec_c3 = st.columns(3)
             with spec_c1:
                 st.markdown("**카드 기본**")
+                sp["card_width_mm"] = st.number_input("카드 가로 (mm)", 30, 200, int(sp.get("card_width_mm", 90)), key=f"sp_w_{sfx}")
                 sp["card_height_mm"] = st.number_input("카드 세로 (mm)", 30, 120, int(sp["card_height_mm"]), key=f"sp_h_{sfx}")
                 common["corner_radius_mm"] = st.number_input("모서리 라운드 (mm)", 0.0, 15.0, float(common["corner_radius_mm"]), 0.5, key=f"sp_cr_{sfx}")
                 sp["padding_lr_mm"] = st.number_input("좌우 여백 (mm)", 0.0, 15.0, float(sp["padding_lr_mm"]), 0.5, key=f"sp_plr_{sfx}")
                 sp["padding_top_mm"] = st.number_input("상단 여백 (mm)", 0.0, 15.0, float(sp["padding_top_mm"]), 0.5, key=f"sp_pt_{sfx}")
+                sp["padding_bottom_mm"] = st.number_input("하단 여백 (mm)", 0.0, 15.0, float(sp.get("padding_bottom_mm", 2.5)), 0.5, key=f"sp_pb_{sfx}")
 
             with spec_c2:
                 st.markdown("**배지**")
@@ -3717,7 +3725,8 @@ elif menu == "🏷️ 쇼카드 제작":
         sz = SHOWCARD_SIZES[sc_size]
         size_spec = all_specs[sc_size]
         common_spec = all_specs["_common"]
-        w_mm, h_mm = sz["w"], size_spec["card_height_mm"]
+        w_mm = size_spec.get("card_width_mm", sz["w"])
+        h_mm = size_spec["card_height_mm"]
         scale = 3
         w_px, h_px = w_mm * scale, h_mm * scale
 
