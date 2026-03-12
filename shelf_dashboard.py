@@ -3022,9 +3022,9 @@ elif menu == "🛒 교차판매 분석":
             if sub_items.empty:
                 st.info("세부 카테고리 데이터가 없습니다.")
             else:
-                st.subheader("세부 카테고리 동시구매 Top 20")
+                st.subheader("세부 카테고리 동시구매 Top 100")
                 st.info(
-                    "세부 카테고리 기준으로 동시구매 빈도가 높은 쌍 Top 20입니다.\n\n"
+                    "세부 카테고리 기준으로 동시구매 빈도가 높은 쌍 Top 100입니다.\n\n"
                     "**Lift > 1**: 우연보다 자주 함께 구매 | "
                     "**Confidence**: A를 산 고객 중 B도 산 비율"
                 )
@@ -3033,7 +3033,7 @@ elif menu == "🛒 교차판매 분석":
                 if sc_cooc.empty:
                     st.info("세부 카테고리 교차분석 데이터가 없습니다.")
                 else:
-                    sc_top = sc_cooc.sort_values("count", ascending=False).head(20).copy()
+                    sc_top = sc_cooc.sort_values("count", ascending=False).head(100).copy()
                     sc_top["confidence_a_to_b"] = (sc_top["confidence_a_to_b"] * 100).round(1)
                     sc_top["confidence_b_to_a"] = (sc_top["confidence_b_to_a"] * 100).round(1)
                     sc_top["lift"] = sc_top["lift"].round(2)
