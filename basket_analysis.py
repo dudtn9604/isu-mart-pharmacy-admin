@@ -300,6 +300,46 @@ def get_products_by_category_pair(
     return result
 
 
+def _compute_category_product_count(
+    items_df: pd.DataFrame,
+    min_count: int = 3,
+) -> pd.DataFrame:
+    """
+    상품 쌍 레벨에서 min_count 이상인 쌍만 추려,
+    카테고리 쌍별로 합산한 동시구매 건수를 반환
+
+    Returns: DataFrame[cat_a, cat_b, count]
+    """
+    product_cooc = compute_cooccurrence(items_df, level="product")
+    if product_cooc.empty:
+        return pd.DataFrame()
+
+    # min_count 이상인 상품 쌍만
+    product_cooc = product_cooc[product_cooc["count"] >= min_count]
+    if product_cooc.empty:
+        return pd.DataFrame()
+
+    # 상품명 → 카테고리 매핑
+    cat_map = items_df.drop_duplicates("product_name").set_index("product_name")["erp_category"].to_dict()
+
+    rows = []
+    for _, r in product_cooc.iterrows():
+        cat_a = cat_map.get(r["item_a"], "")
+        cat_b = cat_map.get(r["item_b"], "")
+        if not cat_a or not cat_b:
+            continue
+        key = tuple(sorted([cat_a, cat_b]))
+        rows.append({"cat_a": key[0], "cat_b": key[1], "count": r["count"]})
+
+    if not rows:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows)
+    # 같은 카테고리 쌍의 상품 쌍 건수 합산
+    df = df.groupby(["cat_a", "cat_b"], as_index=False)["count"].sum()
+    return df
+
+
 def get_category_heatmap_data(
     items_df: pd.DataFrame,
     metric: str = "lift",
@@ -311,7 +351,24 @@ def get_category_heatmap_data(
     Args:
         metric: "lift", "confidence", 또는 "count"
         min_count: 동시구매 횟수가 이 값 이상인 쌍만 포함 (기본 3)
+
+    count 메트릭: 상품 쌍 레벨에서 min_count 이상인 쌍의 건수를 카테고리별 합산
+    lift/confidence: 카테고리 레벨 동시출현 기반 (min_count 필터 적용)
     """
+    if metric == "count":
+        # 상품 쌍 기반 집계 → 하단 상세 테이블과 동일한 기준
+        cat_counts = _compute_category_product_count(items_df, min_count=min_count)
+        if cat_counts.empty:
+            return pd.DataFrame()
+
+        categories = sorted(set(cat_counts["cat_a"].tolist() + cat_counts["cat_b"].tolist()))
+        matrix = pd.DataFrame(0, index=categories, columns=categories)
+        for _, r in cat_counts.iterrows():
+            matrix.loc[r["cat_a"], r["cat_b"]] = r["count"]
+            matrix.loc[r["cat_b"], r["cat_a"]] = r["count"]
+        return matrix
+
+    # lift / confidence: 카테고리 레벨 동시출현
     cooc = compute_cooccurrence(items_df, level="category")
 
     if cooc.empty:
@@ -326,19 +383,12 @@ def get_category_heatmap_data(
     categories = sorted(set(cooc["item_a"].tolist() + cooc["item_b"].tolist()))
 
     if metric == "confidence":
-        # Confidence는 비대칭: 행→열 방향 (A를 샀을 때 B도 살 확률)
         matrix = pd.DataFrame(0.0, index=categories, columns=categories)
         for _, r in cooc.iterrows():
             matrix.loc[r["item_a"], r["item_b"]] = r["confidence_a_to_b"]
             matrix.loc[r["item_b"], r["item_a"]] = r["confidence_b_to_a"]
-        # 대각선 = 1.0 (자기 자신)
         for c in categories:
             matrix.loc[c, c] = 1.0
-    elif metric == "count":
-        matrix = pd.DataFrame(0, index=categories, columns=categories)
-        for _, r in cooc.iterrows():
-            matrix.loc[r["item_a"], r["item_b"]] = r["count"]
-            matrix.loc[r["item_b"], r["item_a"]] = r["count"]
     else:
         matrix = pd.DataFrame(1.0, index=categories, columns=categories)
         for _, r in cooc.iterrows():

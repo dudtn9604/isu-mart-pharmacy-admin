@@ -2840,9 +2840,9 @@ elif menu == "🛒 교차판매 분석":
                     st.subheader("카테고리 × 카테고리 동시구매 건수")
                     st.info(
                         "**동시구매 건수란?** "
-                        "두 카테고리 상품이 같은 주문에서 함께 구매된 횟수입니다.\n\n"
+                        "두 카테고리 간 동시구매 3회 이상인 상품 쌍들의 건수를 합산한 값입니다.\n\n"
                         "**읽는 법**: 숫자가 클수록 (진한 색) 자주 함께 구매되는 카테고리 쌍입니다. "
-                        "동시구매 횟수가 3회 이상인 쌍만 노출됩니다."
+                        "히트맵 칸을 클릭하면 구체적인 상품 쌍을 확인할 수 있습니다."
                     )
                 elif metric_key == "confidence":
                     st.subheader("카테고리 × 카테고리 Confidence Heatmap")
@@ -2872,7 +2872,7 @@ elif menu == "🛒 교차판매 분석":
                     colorscale = "Blues"
                     zmid = None
                     fmt = "d"
-                    caption = "숫자 = 동시구매 건수 | 건수가 클수록 자주 함께 구매되는 카테고리 쌍"
+                    caption = "숫자 = 3회 이상 동시구매 상품 쌍의 건수 합산 | 클수록 자주 함께 구매되는 카테고리 쌍"
                 elif metric_key == "lift":
                     colorscale = "RdYlGn"
                     zmid = 1.0
