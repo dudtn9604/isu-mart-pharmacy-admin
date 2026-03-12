@@ -4054,12 +4054,57 @@ elif menu == "🏪 포레온 시뮬레이션":
     _total_fx = _na + _nb + _nc + _nd
     _total_shelves = (_na + _nb + _nc) * 5 + _nd * 6
 
-    c1, c2, c3, c4, c5 = st.columns(5)
+    # 수용 가능 SKU 예측: 선반 너비 ÷ (평균 상품 폭 + 여유) × 2열 가능 비율
+    _dims_df = get_all_dimensions()
+    if not _dims_df.empty and _dims_df["width"].notna().any():
+        _avg_product_w = _dims_df["width"].dropna().mean()
+        _dual_row_rate = _dims_df["dual_row"].mean() if "dual_row" in _dims_df.columns else 0.97
+    else:
+        _avg_product_w = 8.0
+        _dual_row_rate = 0.97
+
+    _capacity_by_type = {}
+    for _stype, _scfg in FOREON_SHELF_CONFIGS.items():
+        _shelf_w_cm = _scfg["width"]
+        _n_tiers = len(_scfg["tiers"])
+        _count = {"A": _na, "B": _nb, "C": _nc, "D": _nd}.get(_stype, 0)
+        _per_shelf = max(1, int(_shelf_w_cm / (_avg_product_w + 0.3)))
+        _per_shelf_dual = _per_shelf * (1 + _dual_row_rate)
+        _type_capacity = int(_count * _n_tiers * _per_shelf_dual)
+        _capacity_by_type[_stype] = {"count": _count, "tiers": _n_tiers, "shelves": _count * _n_tiers, "capacity": _type_capacity}
+    _total_capacity = sum(v["capacity"] for v in _capacity_by_type.values())
+    _current_assigned = len(st.session_state.foreon_placements)
+
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("매장 면적", f"{foreon_area:.1f} m² ({foreon_pyeong:.1f}평)")
     c2.metric("규격 (W×H)", f"{FOREON_W/1000:.1f} × {FOREON_H/1000:.1f} m")
     c3.metric("총 매대", f"{_total_fx}대", help=f"A:{_na} B:{_nb} C:{_nc} D:{_nd}")
     c4.metric("총 선반 (단면)", f"{_total_shelves}개")
-    c5.metric("배정 상품", f"{len(st.session_state.foreon_placements)}건")
+
+    st.markdown("")
+    ca, cb, cc = st.columns(3)
+    ca.metric("📦 예상 수용 SKU", f"{_total_capacity:,}개", help="선반 너비 ÷ 평균 상품 폭 × 2열 배치율 기준 추정")
+    cb.metric("🏷️ 현재 배정 상품", f"{_current_assigned:,}건")
+    _fill_pct = round(_current_assigned / _total_capacity * 100, 1) if _total_capacity > 0 else 0
+    cc.metric("📊 배정률", f"{_fill_pct}%", delta=f"잔여 {_total_capacity - _current_assigned:,}자리")
+
+    # 타입별 수용력 상세
+    with st.expander("📐 매대 타입별 수용력 상세", expanded=False):
+        _cap_rows = []
+        for _stype in ["A", "B", "C", "D"]:
+            _cv = _capacity_by_type.get(_stype)
+            if _cv and _cv["count"] > 0:
+                _scfg = FOREON_SHELF_CONFIGS[_stype]
+                _cap_rows.append({
+                    "타입": f"{_stype} ({_scfg['name']})",
+                    "매대 수": _cv["count"],
+                    "단 수": _cv["tiers"],
+                    "총 선반": _cv["shelves"],
+                    "선반당 수용": f"~{int(_cv['capacity'] / _cv['shelves'])}개" if _cv["shelves"] > 0 else "-",
+                    "예상 수용 SKU": f"{_cv['capacity']:,}개",
+                })
+        st.dataframe(pd.DataFrame(_cap_rows), hide_index=True, use_container_width=True)
+        st.caption(f"※ 평균 상품 폭 {_avg_product_w:.1f}cm, 2열 배치율 {_dual_row_rate*100:.0f}% 기준 추정치")
 
     st.divider()
 
