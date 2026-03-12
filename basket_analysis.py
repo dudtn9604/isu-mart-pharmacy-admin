@@ -303,14 +303,22 @@ def get_products_by_category_pair(
 def get_category_heatmap_data(
     items_df: pd.DataFrame,
     metric: str = "lift",
+    min_count: int = 3,
 ) -> pd.DataFrame:
     """
     카테고리 × 카테고리 매트릭스 반환 (heatmap용)
 
     Args:
         metric: "lift", "confidence", 또는 "count"
+        min_count: 동시구매 횟수가 이 값 이상인 쌍만 포함 (기본 3)
     """
     cooc = compute_cooccurrence(items_df, level="category")
+
+    if cooc.empty:
+        return pd.DataFrame()
+
+    # min_count 미만인 쌍 제거
+    cooc = cooc[cooc["count"] >= min_count]
 
     if cooc.empty:
         return pd.DataFrame()
