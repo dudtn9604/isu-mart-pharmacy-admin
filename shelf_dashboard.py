@@ -3217,9 +3217,12 @@ elif menu == "🏷️ 쇼카드 제작":
                          f'font-size="{fs2}" font-family="sans-serif" opacity="0.85">{_escape_xml(l2)}</text>')
         lines.append(f'<text x="{w_px/2}" y="{top_h + bot_h * 0.72}" text-anchor="middle" fill="{bot_text_fill}" '
                      f'font-size="{fs3}" font-weight="900" font-family="sans-serif">{_escape_xml(l3)}</text>')
+        # 상단: 위쪽만 라운드, 아래쪽은 직각 (path로 구현)
+        top_path = (f'M{r},0 L{w_px-r},0 Q{w_px},0 {w_px},{r} '
+                    f'L{w_px},{top_h} L0,{top_h} L0,{r} Q0,0 {r},0 Z')
         return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w_px} {h_px}" width="{w_px}" height="{h_px}">'
                 f'<rect width="{w_px}" height="{h_px}" rx="{r}" fill="{bc}"/>'
-                f'<rect width="{w_px}" height="{top_h + r}" rx="{r}" fill="{tc}"/>'
+                f'<path d="{top_path}" fill="{tc}"/>'
                 f'{badge_el}'
                 f'{"".join(lines)}'
                 f'</svg>')
