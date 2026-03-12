@@ -3022,13 +3022,14 @@ elif menu == "🏷️ 쇼카드 제작":
         "피부/연고": "#e61778", "여성건강": "#a80d82", "간/영양": "#146133",
         "소화효소": "#1c2e6e", "탈모": "#1c9ecc", "관절": "#0a82c2",
     }
-    SHOWCARD_SIZES = {
-        "S": {"w": 54, "label": "S (54mm)", "desc": "진열폭 3-5cm"},
-        "M": {"w": 70, "label": "M (70mm)", "desc": "진열폭 5-7cm"},
-        "L": {"w": 90, "label": "L (90mm)", "desc": "진열폭 7-11cm"},
-        "XL": {"w": 110, "label": "XL (110mm)", "desc": "진열폭 11-15cm"},
-        "XXL": {"w": 150, "label": "XXL (150mm)", "desc": "진열폭 15cm+"},
-    }
+    MAX_SPEC_SIZES = 7  # 규격 타입 최대 개수
+
+    def _get_size_keys(specs):
+        """specs에서 사이즈 키만 추출 (순서 유지)"""
+        order = specs.get("_size_order")
+        if order and isinstance(order, list):
+            return [k for k in order if k in specs]
+        return [k for k in specs if not k.startswith("_")]
 
     # ── 디자인 규격 기본값 (v2: 사이즈별) ──
     BADGE_POSITIONS = {
@@ -3078,6 +3079,7 @@ elif menu == "🏷️ 쇼카드 제작":
     DEFAULT_SPECS = {
         "_common": dict(DEFAULT_COMMON),
         "_uniform": True,
+        "_size_order": ["S", "M", "L", "XL", "XXL"],
         "S": {**DEFAULT_SIZE_SPEC, "card_width_mm": 54, "card_height_mm": 55, "line1_font_pt": 8.0, "line2_font_pt": 7.0, "line3_font_pt": 16.0, "badge_font_pt": 6.0, "badge_height_mm": 4.0},
         "M": {**DEFAULT_SIZE_SPEC, "card_width_mm": 70, "card_height_mm": 60, "line1_font_pt": 9.0, "line2_font_pt": 8.0, "line3_font_pt": 18.0},
         "L": {**DEFAULT_SIZE_SPEC, "card_width_mm": 90},
@@ -3106,7 +3108,7 @@ elif menu == "🏷️ 쇼카드 제작":
             # card_width_mm, padding_bottom_mm 누락 시 기본값
             if "padding_bottom_mm" not in size_data:
                 size_data["padding_bottom_mm"] = 2.5
-            new_specs = {"_common": common, "_uniform": True}
+            new_specs = {"_common": common, "_uniform": True, "_size_order": ["S", "M", "L", "XL", "XXL"]}
             sz_widths = {"S": 54, "M": 70, "L": 90, "XL": 110, "XXL": 150}
             for sz in ["S", "M", "L", "XL", "XXL"]:
                 sz_data = dict(size_data)
@@ -3131,18 +3133,25 @@ elif menu == "🏷️ 쇼카드 제작":
             if "version" in _loaded_spec and _loaded_spec["version"] == 2:
                 # v2 구조: version 키 제거 후 사용
                 v2 = {k: v for k, v in _loaded_spec.items() if k != "version"}
-                # 누락 키 보충
-                for sz in ["S", "M", "L", "XL", "XXL"]:
+                # 사이즈 키 목록 (동적)
+                size_keys = _get_size_keys(v2)
+                if not size_keys:
+                    size_keys = ["S", "M", "L", "XL", "XXL"]
+                    v2["_size_order"] = size_keys
+                # 각 사이즈 누락 키 보충
+                for sz in size_keys:
                     if sz not in v2:
-                        v2[sz] = dict(DEFAULT_SPECS[sz])
+                        v2[sz] = dict(DEFAULT_SIZE_SPEC)
                     else:
-                        v2[sz] = {**DEFAULT_SPECS[sz], **v2[sz]}
+                        v2[sz] = {**DEFAULT_SIZE_SPEC, **v2[sz]}
                 if "_common" not in v2:
                     v2["_common"] = dict(DEFAULT_COMMON)
                 else:
                     v2["_common"] = {**DEFAULT_COMMON, **v2["_common"]}
                 if "_uniform" not in v2:
                     v2["_uniform"] = True
+                if "_size_order" not in v2:
+                    v2["_size_order"] = size_keys
                 st.session_state["sc_specs"] = v2
             else:
                 # v1 → v2 마이그레이션
@@ -3228,30 +3237,70 @@ elif menu == "🏷️ 쇼카드 제작":
 
             common["text_align"] = st.radio("텍스트 정렬", ["center", "left"], format_func=lambda x: {"center": "중앙 정렬", "left": "좌측 정렬"}.get(x), horizontal=True, key=f"sp_align_{sfx}")
 
+        cur_sizes = _get_size_keys(all_specs)
+
         if is_uniform:
-            # 전체 동일 적용: L 사이즈 기준으로 편집
-            _render_size_spec_ui("ALL", all_specs["L"])
+            # 전체 동일 적용: 첫 번째 사이즈 기준으로 편집
+            first_sz = cur_sizes[0] if cur_sizes else "L"
+            _render_size_spec_ui("ALL", all_specs[first_sz])
         else:
-            # 사이즈별 개별 설정
-            size_tabs = st.tabs(["S", "M", "L", "XL", "XXL"])
-            for tab, sz in zip(size_tabs, ["S", "M", "L", "XL", "XXL"]):
+            # 사이즈별 개별 설정 (동적 탭)
+            size_tabs = st.tabs(cur_sizes)
+            for tab, sz in zip(size_tabs, cur_sizes):
                 with tab:
                     _render_size_spec_ui(sz, all_specs[sz])
+
+        # ── 규격 추가 / 삭제 ──
+        st.markdown("---")
+        st.markdown("**규격 타입 관리**")
+        add_col, del_col = st.columns(2)
+        with add_col:
+            if len(cur_sizes) >= MAX_SPEC_SIZES:
+                st.caption(f"최대 {MAX_SPEC_SIZES}개까지 가능합니다.")
+            else:
+                new_name = st.text_input("새 규격 이름", placeholder="예: 미니, 와이드", key="sp_new_name")
+                if st.button("➕ 규격 추가", use_container_width=True, key="sp_add_size"):
+                    name = new_name.strip()
+                    if not name:
+                        st.warning("이름을 입력해주세요.")
+                    elif name in all_specs or name.startswith("_"):
+                        st.warning(f"'{name}' 이름은 이미 존재하거나 사용할 수 없습니다.")
+                    else:
+                        all_specs[name] = dict(DEFAULT_SIZE_SPEC)
+                        if "_size_order" not in all_specs:
+                            all_specs["_size_order"] = cur_sizes
+                        all_specs["_size_order"].append(name)
+                        st.session_state["sc_specs"] = all_specs
+                        st.rerun()
+        with del_col:
+            if len(cur_sizes) <= 1:
+                st.caption("최소 1개 규격은 유지해야 합니다.")
+            else:
+                del_target = st.selectbox("삭제할 규격", cur_sizes, key="sp_del_target")
+                if st.button("🗑️ 규격 삭제", use_container_width=True, key="sp_del_size"):
+                    if del_target in all_specs:
+                        del all_specs[del_target]
+                        if "_size_order" in all_specs and del_target in all_specs["_size_order"]:
+                            all_specs["_size_order"].remove(del_target)
+                        st.session_state["sc_specs"] = all_specs
+                        st.rerun()
 
         st.markdown("---")
         save_col1, save_col2 = st.columns(2)
         with save_col1:
             if st.button("💾 규격 저장", use_container_width=True, key="sp_save"):
                 try:
-                    # uniform이면 L 값을 전체 사이즈에 복사
+                    cur_sz_keys = _get_size_keys(all_specs)
+                    # uniform이면 첫 번째 사이즈 값을 전체에 복사
                     if all_specs["_uniform"]:
-                        base = dict(all_specs["L"])
-                        for sz in ["S", "M", "L", "XL", "XXL"]:
+                        base = dict(all_specs[cur_sz_keys[0]])
+                        for sz in cur_sz_keys:
                             all_specs[sz] = dict(base)
                     save_data = {"version": 2}
                     save_data["_common"] = dict(common)
                     save_data["_uniform"] = all_specs["_uniform"]
-                    for sz in ["S", "M", "L", "XL", "XXL"]:
+                    save_data["_size_order"] = cur_sz_keys
+                    for sz in cur_sz_keys:
                         save_data[sz] = dict(all_specs[sz])
                     sb = _get_sb()
                     if sb:
@@ -3276,11 +3325,19 @@ elif menu == "🏷️ 쇼카드 제작":
         return "#5e9e33"
 
     def _recommend_size(width_cm: float) -> str:
-        if width_cm <= 5: return "S"
-        if width_cm <= 7: return "M"
-        if width_cm <= 11: return "L"
-        if width_cm <= 15: return "XL"
-        return "XXL"
+        """진열폭(cm)에 가장 가까운 사이즈 추천 — 동적 사이즈 대응"""
+        sz_keys = _get_size_keys(all_specs)
+        if not sz_keys:
+            return "L"
+        # 각 사이즈의 card_width_mm와 진열폭 비교, 가장 가까운 것 선택
+        width_mm = width_cm * 10
+        best, best_diff = sz_keys[0], float("inf")
+        for sz in sz_keys:
+            w = all_specs[sz].get("card_width_mm", 90)
+            diff = abs(w - width_mm)
+            if diff < best_diff:
+                best, best_diff = sz, diff
+        return best
 
     def _escape_xml(s: str) -> str:
         return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
@@ -3536,13 +3593,20 @@ elif menu == "🏷️ 쇼카드 제작":
         col_sz, col_clr1, col_clr2, col_clr3 = st.columns([2, 1, 1, 1])
 
         with col_sz:
-            rec_size = _recommend_size(dim.get("width", 7)) if dim.get("width") else "M"
-            size_options = list(SHOWCARD_SIZES.keys())
+            size_options = _get_size_keys(all_specs)
+            rec_size = _recommend_size(dim.get("width", 7)) if dim.get("width") else size_options[0]
+            if rec_size not in size_options:
+                rec_size = size_options[0]
+            def _sz_label(sz):
+                sp = all_specs.get(sz, {})
+                w = sp.get("card_width_mm", 90)
+                h = sp.get("card_height_mm", 65)
+                return f"{sz} ({w}×{h}mm)"
             sc_size = st.selectbox(
                 "사이즈",
                 size_options,
                 index=size_options.index(rec_size),
-                format_func=lambda x: f"{SHOWCARD_SIZES[x]['label']} — {SHOWCARD_SIZES[x]['desc']}",
+                format_func=_sz_label,
                 key="sc_size",
             )
 
@@ -3656,10 +3720,9 @@ elif menu == "🏷️ 쇼카드 제작":
         # ── 디자인 프리뷰 ──
         st.subheader("5️⃣ 디자인 프리뷰")
 
-        sz = SHOWCARD_SIZES[sc_size]
         size_spec = all_specs[sc_size]
         common_spec = all_specs["_common"]
-        w_mm = size_spec.get("card_width_mm", sz["w"])
+        w_mm = size_spec.get("card_width_mm", 90)
         h_mm = size_spec["card_height_mm"]
         scale = 3
         w_px, h_px = w_mm * scale, h_mm * scale
