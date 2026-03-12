@@ -3042,45 +3042,44 @@ elif menu == "🏷️ 쇼카드 제작":
     ]
 
     DEFAULT_COMMON = {
-        "corner_radius_mm": 3.0,
-        "text_align": "center",
+        "corner_radius_mm": 4.0,
+        "text_align": "left",
         "badge_position": "top_left",
     }
 
-    DEFAULT_SIZE_SPEC = {
-        "card_width_mm": 90,
-        "card_height_mm": 65,
-        "padding_lr_mm": 3.0,
-        "padding_top_mm": 2.5,
-        "padding_bottom_mm": 2.5,
-        "badge_height_mm": 5.0,
-        "badge_radius_mm": 2.5,
-        "badge_font_pt": 7.0,
-        "badge_gap_mm": 1.5,
-        "line1_font_pt": 10.0,
-        "line1_weight": "Regular",
-        "line1_font_family": "sans-serif",
-        "line1_y_pct": 38,
-        "line2_font_pt": 9.0,
-        "line2_weight": "Regular",
-        "line2_font_family": "sans-serif",
-        "line2_y_pct": 52,
-        "line3_font_pt": 20.0,
-        "line3_weight": "ExtraBold",
-        "line3_font_family": "sans-serif",
-        "line3_y_pct": 80,
+    # ── PDF 규격 기반 기본 템플릿 ──
+    _SHORT_BASE = {
+        "card_width_mm": 70, "card_height_mm": 34,
+        "padding_lr_mm": 2.0, "padding_top_mm": 2.0, "padding_bottom_mm": 12.5,
+        "badge_height_mm": 5.0, "badge_radius_mm": 4.0, "badge_font_pt": 6.0, "badge_gap_mm": 3.0,
+        "line1_font_pt": 6.0, "line1_weight": "Regular", "line1_font_family": "sans-serif", "line1_y_pct": 32,
+        "line2_font_pt": 8.5, "line2_weight": "Regular", "line2_font_family": "sans-serif", "line2_y_pct": 70,
+        "line3_font_pt": 12.0, "line3_weight": "ExtraBold", "line3_font_family": "sans-serif", "line3_y_pct": 52,
+        "top_ratio_pct": 15,
+    }
+    _LONG_BASE = {
+        "card_width_mm": 110, "card_height_mm": 32,
+        "padding_lr_mm": 3.0, "padding_top_mm": 2.0, "padding_bottom_mm": 12.5,
+        "badge_height_mm": 5.5, "badge_radius_mm": 4.0, "badge_font_pt": 6.0, "badge_gap_mm": 3.7,
+        "line1_font_pt": 6.0, "line1_weight": "Regular", "line1_font_family": "sans-serif", "line1_y_pct": 30,
+        "line2_font_pt": 8.5, "line2_weight": "Regular", "line2_font_family": "sans-serif", "line2_y_pct": 68,
+        "line3_font_pt": 15.0, "line3_weight": "ExtraBold", "line3_font_family": "sans-serif", "line3_y_pct": 48,
         "top_ratio_pct": 17,
     }
 
+    DEFAULT_SIZE_SPEC = dict(_LONG_BASE)  # 새 규격 추가 시 Long 기반 템플릿
+
     DEFAULT_SPECS = {
         "_common": dict(DEFAULT_COMMON),
-        "_uniform": True,
-        "_size_order": ["S", "M", "L", "XL", "XXL"],
-        "S": {**DEFAULT_SIZE_SPEC, "card_width_mm": 54, "card_height_mm": 55, "line1_font_pt": 8.0, "line2_font_pt": 7.0, "line3_font_pt": 16.0, "badge_font_pt": 6.0, "badge_height_mm": 4.0},
-        "M": {**DEFAULT_SIZE_SPEC, "card_width_mm": 70, "card_height_mm": 60, "line1_font_pt": 9.0, "line2_font_pt": 8.0, "line3_font_pt": 18.0},
-        "L": {**DEFAULT_SIZE_SPEC, "card_width_mm": 90},
-        "XL": {**DEFAULT_SIZE_SPEC, "card_width_mm": 110, "card_height_mm": 70, "line1_font_pt": 11.0, "line2_font_pt": 10.0, "line3_font_pt": 22.0, "badge_font_pt": 8.0, "badge_height_mm": 5.5},
-        "XXL": {**DEFAULT_SIZE_SPEC, "card_width_mm": 150, "card_height_mm": 80, "line1_font_pt": 12.0, "line2_font_pt": 11.0, "line3_font_pt": 24.0, "badge_font_pt": 9.0, "badge_height_mm": 6.0, "badge_gap_mm": 2.0},
+        "_uniform": False,
+        "_size_order": ["S1", "S2", "L1", "L2", "L3", "L4", "L5"],
+        "S1": {**_SHORT_BASE, "card_width_mm": 40},
+        "S2": {**_SHORT_BASE, "card_width_mm": 70},
+        "L1": {**_LONG_BASE, "card_width_mm": 110},
+        "L2": {**_LONG_BASE, "card_width_mm": 130},
+        "L3": {**_LONG_BASE, "card_width_mm": 150},
+        "L4": {**_LONG_BASE, "card_width_mm": 210},
+        "L5": {**_LONG_BASE, "card_width_mm": 240},
     }
 
     # v1 → v2 마이그레이션
@@ -3172,66 +3171,79 @@ elif menu == "🏷️ 쇼카드 제작":
         is_uniform = st.checkbox("전체 사이즈에 동일 적용", value=all_specs.get("_uniform", True), key="sp_uniform")
         all_specs["_uniform"] = is_uniform
 
+        # 필수 정의 항목
+        _REQUIRED_FIELDS = {
+            "card_width_mm": "카드 가로",
+            "card_height_mm": "카드 세로",
+            "line3_font_pt": "제목/제품명 폰트 크기",
+            "padding_bottom_mm": "하단 필수 여백",
+        }
+
         def _render_size_spec_ui(sz, sp):
             """사이즈별 규격 UI 렌더링"""
             sfx = sz  # widget key 접미사
-            spec_c1, spec_c2, spec_c3 = st.columns(3)
+            spec_c1, spec_c2 = st.columns(2)
             with spec_c1:
                 st.markdown("**카드 기본**")
-                sp["card_width_mm"] = st.number_input("카드 가로 (mm)", 30, 200, int(sp.get("card_width_mm", 90)), key=f"sp_w_{sfx}")
-                sp["card_height_mm"] = st.number_input("카드 세로 (mm)", 30, 120, int(sp["card_height_mm"]), key=f"sp_h_{sfx}")
+                sp["card_width_mm"] = st.number_input("카드 가로 (mm)", 10, 300, int(sp.get("card_width_mm", 90)), key=f"sp_w_{sfx}")
+                sp["card_height_mm"] = st.number_input("카드 세로 (mm)", 10, 120, int(sp["card_height_mm"]), key=f"sp_h_{sfx}")
                 common["corner_radius_mm"] = st.number_input("모서리 라운드 (mm)", 0.0, 15.0, float(common["corner_radius_mm"]), 0.5, key=f"sp_cr_{sfx}")
                 sp["padding_lr_mm"] = st.number_input("좌우 여백 (mm)", 0.0, 15.0, float(sp["padding_lr_mm"]), 0.5, key=f"sp_plr_{sfx}")
                 sp["padding_top_mm"] = st.number_input("상단 여백 (mm)", 0.0, 15.0, float(sp["padding_top_mm"]), 0.5, key=f"sp_pt_{sfx}")
-                sp["padding_bottom_mm"] = st.number_input("하단 여백 (mm)", 0.0, 15.0, float(sp.get("padding_bottom_mm", 2.5)), 0.5, key=f"sp_pb_{sfx}")
+                sp["padding_bottom_mm"] = st.number_input("하단 필수 여백 (mm)", 0.0, 20.0, float(sp.get("padding_bottom_mm", 12.5)), 0.5, key=f"sp_pb_{sfx}")
 
             with spec_c2:
-                st.markdown("**배지**")
-                sp["badge_height_mm"] = st.number_input("배지 높이 (mm)", 2.0, 12.0, float(sp["badge_height_mm"]), 0.5, key=f"sp_bh_{sfx}")
-                sp["badge_radius_mm"] = st.number_input("배지 라운드 (mm)", 0.0, 10.0, float(sp["badge_radius_mm"]), 0.5, key=f"sp_br_{sfx}")
-                sp["badge_font_pt"] = st.number_input("배지 폰트 (pt)", 4.0, 14.0, float(sp["badge_font_pt"]), 0.5, key=f"sp_bf_{sfx}")
-                sp["badge_gap_mm"] = st.number_input("배지 간격 (mm)", 0.5, 5.0, float(sp["badge_gap_mm"]), 0.5, key=f"sp_bg_{sfx}")
+                st.markdown("**배지 (헤더)**")
+                sp["badge_height_mm"] = st.number_input("헤더 높이 (mm)", 2.0, 12.0, float(sp["badge_height_mm"]), 0.5, key=f"sp_bh_{sfx}")
+                sp["badge_radius_mm"] = st.number_input("헤더 모퉁이 (mm)", 0.0, 10.0, float(sp["badge_radius_mm"]), 0.5, key=f"sp_br_{sfx}")
+                sp["badge_font_pt"] = st.number_input("키워드 폰트 (pt)", 4.0, 14.0, float(sp["badge_font_pt"]), 0.5, key=f"sp_bf_{sfx}")
+                sp["badge_gap_mm"] = st.number_input("헤더-본문 간격 (mm)", 0.5, 8.0, float(sp["badge_gap_mm"]), 0.5, key=f"sp_bg_{sfx}")
                 cur_pos_idx = badge_pos_keys.index(common.get("badge_position", "top_left")) if common.get("badge_position", "top_left") in badge_pos_keys else 0
                 sel_pos = st.selectbox("배지 위치", badge_pos_keys, index=cur_pos_idx, format_func=lambda x: BADGE_POSITIONS[x], key=f"sp_bpos_{sfx}")
                 common["badge_position"] = sel_pos
 
-            with spec_c3:
-                st.markdown("**상하단 구분 비율**")
-                sp["top_ratio_pct"] = st.slider("상단 비율 (%)", 5, 50, int(sp["top_ratio_pct"]), key=f"sp_tr_{sfx}")
-                st.caption(f"상단 {sp['top_ratio_pct']}% / 하단 {100 - sp['top_ratio_pct']}%")
+            # top_ratio_pct 자동 계산 (Design B용)
+            if sp["card_height_mm"] > 0:
+                sp["top_ratio_pct"] = round(sp["badge_height_mm"] / sp["card_height_mm"] * 100)
 
             st.markdown("---")
             st.markdown("**텍스트 규격**")
             txt_c1, txt_c2, txt_c3 = st.columns(3)
 
             with txt_c1:
-                st.markdown("*1줄 (소구 포인트)*")
-                sp["line1_font_pt"] = st.number_input("폰트 크기 (pt)", 5.0, 30.0, float(sp["line1_font_pt"]), 0.5, key=f"sp_f1_{sfx}")
+                st.markdown("*1줄 (설명)*")
+                sp["line1_font_pt"] = st.number_input("폰트 크기 (pt)", 4.0, 30.0, float(sp["line1_font_pt"]), 0.5, key=f"sp_f1_{sfx}")
                 cur_ff1 = sp.get("line1_font_family", "sans-serif")
                 ff1_idx = FONT_FAMILIES.index(cur_ff1) if cur_ff1 in FONT_FAMILIES else 0
                 sp["line1_font_family"] = st.selectbox("폰트 종류", FONT_FAMILIES, index=ff1_idx, key=f"sp_ff1_{sfx}")
                 sp["line1_weight"] = st.selectbox("굵기", weight_options, index=weight_options.index(sp.get("line1_weight", "Regular")), key=f"sp_w1_{sfx}")
-                sp["line1_y_pct"] = st.slider("Y 위치 (%)", 15, 60, int(sp["line1_y_pct"]), key=f"sp_y1_{sfx}")
+                sp["line1_y_pct"] = st.slider("Y 위치 (%)", 10, 70, int(sp["line1_y_pct"]), key=f"sp_y1_{sfx}")
 
             with txt_c2:
-                st.markdown("*2줄 (부가 설명)*")
-                sp["line2_font_pt"] = st.number_input("폰트 크기 (pt)", 5.0, 30.0, float(sp["line2_font_pt"]), 0.5, key=f"sp_f2_{sfx}")
+                st.markdown("*2줄 (소제목)*")
+                sp["line2_font_pt"] = st.number_input("폰트 크기 (pt)", 4.0, 30.0, float(sp["line2_font_pt"]), 0.5, key=f"sp_f2_{sfx}")
                 cur_ff2 = sp.get("line2_font_family", "sans-serif")
                 ff2_idx = FONT_FAMILIES.index(cur_ff2) if cur_ff2 in FONT_FAMILIES else 0
                 sp["line2_font_family"] = st.selectbox("폰트 종류", FONT_FAMILIES, index=ff2_idx, key=f"sp_ff2_{sfx}")
                 sp["line2_weight"] = st.selectbox("굵기", weight_options, index=weight_options.index(sp.get("line2_weight", "Regular")), key=f"sp_w2_{sfx}")
-                sp["line2_y_pct"] = st.slider("Y 위치 (%)", 25, 75, int(sp["line2_y_pct"]), key=f"sp_y2_{sfx}")
+                sp["line2_y_pct"] = st.slider("Y 위치 (%)", 20, 90, int(sp["line2_y_pct"]), key=f"sp_y2_{sfx}")
 
             with txt_c3:
-                st.markdown("*3줄 (헤드라인/제품명)*")
-                sp["line3_font_pt"] = st.number_input("폰트 크기 (pt)", 8.0, 40.0, float(sp["line3_font_pt"]), 0.5, key=f"sp_f3_{sfx}")
+                st.markdown("*3줄 (제목/제품명)*")
+                sp["line3_font_pt"] = st.number_input("폰트 크기 (pt)", 6.0, 40.0, float(sp["line3_font_pt"]), 0.5, key=f"sp_f3_{sfx}")
                 cur_ff3 = sp.get("line3_font_family", "sans-serif")
                 ff3_idx = FONT_FAMILIES.index(cur_ff3) if cur_ff3 in FONT_FAMILIES else 0
                 sp["line3_font_family"] = st.selectbox("폰트 종류", FONT_FAMILIES, index=ff3_idx, key=f"sp_ff3_{sfx}")
                 sp["line3_weight"] = st.selectbox("굵기", weight_options, index=weight_options.index(sp.get("line3_weight", "ExtraBold")), key=f"sp_w3_{sfx}")
-                sp["line3_y_pct"] = st.slider("Y 위치 (%)", 55, 95, int(sp["line3_y_pct"]), key=f"sp_y3_{sfx}")
+                sp["line3_y_pct"] = st.slider("Y 위치 (%)", 25, 90, int(sp["line3_y_pct"]), key=f"sp_y3_{sfx}")
 
             common["text_align"] = st.radio("텍스트 정렬", ["center", "left"], format_func=lambda x: {"center": "중앙 정렬", "left": "좌측 정렬"}.get(x), horizontal=True, key=f"sp_align_{sfx}")
+
+            # ── 필수값 검증 ──
+            for field, label in _REQUIRED_FIELDS.items():
+                val = sp.get(field)
+                if val is None or val <= 0:
+                    st.markdown(f':red[**{label}** — 정의가 필요합니다.]')
 
         cur_sizes = _get_size_keys(all_specs)
 
