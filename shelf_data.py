@@ -1279,8 +1279,10 @@ import json as _json
 from pathlib import Path as _Path
 
 _FOREON_LAYOUT_FILE = _Path(__file__).parent / "foreon_layout.json"
+_ISU_LAYOUT_FILE = _Path(__file__).parent / "shelf_layout.json"
 _LAYOUT_BUCKET = "layouts"
 _FOREON_STORAGE_PATH = "foreon_layout.json"
+_ISU_STORAGE_PATH = "isu_layout.json"
 
 
 def _get_storage_url():
@@ -1298,6 +1300,61 @@ def _get_storage_url():
     except Exception:
         pass
     return None, None
+
+
+def save_isu_layout(data: Dict[str, Any]) -> bool:
+    """이수점 레이아웃을 Supabase Storage에 저장 (로컬 파일도 백업)"""
+    import requests as _req
+
+    # 로컬 파일 백업
+    try:
+        with open(str(_ISU_LAYOUT_FILE), "w", encoding="utf-8") as f:
+            _json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+    base_url, headers = _get_storage_url()
+    if not base_url:
+        return False
+    try:
+        data_bytes = _json.dumps(data, ensure_ascii=False).encode("utf-8")
+        resp = _req.put(
+            f"{base_url}/object/{_LAYOUT_BUCKET}/{_ISU_STORAGE_PATH}",
+            headers={**headers, "Content-Type": "application/json", "x-upsert": "true"},
+            data=data_bytes,
+            timeout=10,
+        )
+        return resp.status_code == 200
+    except Exception as e:
+        print(f"[save_isu_layout] Supabase Storage error: {e}", flush=True)
+        return False
+
+
+def load_isu_layout() -> Optional[Dict[str, Any]]:
+    """이수점 레이아웃을 Supabase Storage에서 로드 (실패 시 로컬 파일 폴백)"""
+    import requests as _req
+
+    base_url, headers = _get_storage_url()
+    if base_url:
+        try:
+            resp = _req.get(
+                f"{base_url}/object/{_LAYOUT_BUCKET}/{_ISU_STORAGE_PATH}",
+                headers={**headers, "Cache-Control": "no-cache, no-store"},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                return resp.json()
+        except Exception as e:
+            print(f"[load_isu_layout] Supabase Storage error: {e}", flush=True)
+
+    # 폴백: 로컬 파일
+    if _ISU_LAYOUT_FILE.exists():
+        try:
+            with open(str(_ISU_LAYOUT_FILE), "r", encoding="utf-8") as f:
+                return _json.load(f)
+        except Exception:
+            pass
+    return None
 
 
 def save_foreon_layout(data: Dict[str, Any]) -> bool:

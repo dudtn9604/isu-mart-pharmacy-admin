@@ -19,24 +19,31 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers["Content-Length"])
             data = json.loads(self.rfile.read(length))
             fx_list = data.get("fixtures", [])
-            # DB 저장은 shelf_dashboard 내에서 처리 — 여기서는 파일만 저장
+            # DB 저장
             try:
-                # bulk_update_fixture_positions 호출 (옵션)
                 from shelf_data import bulk_update_fixture_positions
                 if fx_list:
                     bulk_update_fixture_positions(fx_list)
             except Exception:
                 pass
+            # Supabase Storage + 로컬 파일 저장
+            saved_storage = False
             try:
-                with open(str(LAYOUT_FILE), "w", encoding="utf-8") as f:
-                    json.dump(data, f, ensure_ascii=False, indent=2)
-            except Exception:
-                pass
+                from shelf_data import save_isu_layout
+                saved_storage = save_isu_layout(data)
+            except Exception as e:
+                print(f"[API] save_isu_layout error: {e}", flush=True)
+            if not saved_storage:
+                try:
+                    with open(str(LAYOUT_FILE), "w", encoding="utf-8") as f:
+                        json.dump(data, f, ensure_ascii=False, indent=2)
+                except Exception:
+                    pass
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
-            self.wfile.write(json.dumps({"ok": True, "count": len(fx_list)}).encode())
+            self.wfile.write(json.dumps({"ok": True, "count": len(fx_list), "storage": saved_storage}).encode())
 
         elif self.path == "/save-foreon-layout":
             length = int(self.headers["Content-Length"])

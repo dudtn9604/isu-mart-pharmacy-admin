@@ -46,6 +46,8 @@ from shelf_data import (
     get_showcard_history,
     save_showcard,
     _get_sb,
+    save_isu_layout,
+    load_isu_layout,
 )
 
 # ──────────────────────────────────────
@@ -318,7 +320,7 @@ if menu == "🗺️ 매장 배치도":
 
     st.markdown("---")
 
-    # 저장된 레이아웃 파일에서 로드 (있으면), 없으면 DB에서 로드
+    # 레이아웃 로드 우선순위: 로컬 JSON → Supabase Storage → DB 폴백
     _saved_layout = None
     if LAYOUT_FILE.exists():
         try:
@@ -326,6 +328,9 @@ if menu == "🗺️ 매장 배치도":
                 _saved_layout = _json.load(f)
         except Exception:
             pass
+
+    if not (_saved_layout and _saved_layout.get("fixtures")):
+        _saved_layout = load_isu_layout()
 
     if _saved_layout and _saved_layout.get("fixtures"):
         editor_fixtures = _saved_layout["fixtures"]
