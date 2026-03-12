@@ -3874,14 +3874,13 @@ elif menu == "🏪 포레온 시뮬레이션":
         "D": {"name": "벽면매대", "width": 90.0, "tiers": [25, 25, 25, 25, 25, 25]},
     }
 
-    # ── session_state 초기화 (항상 저장 파일에서 로드) ──
+    # ── session_state 초기화 (Supabase Storage에서 로드) ──
     _saved_foreon = None
-    if FOREON_LAYOUT_FILE.exists():
-        try:
-            with open(str(FOREON_LAYOUT_FILE), "r", encoding="utf-8") as f:
-                _saved_foreon = _json.load(f)
-        except Exception:
-            pass
+    try:
+        from shelf_data import load_foreon_layout
+        _saved_foreon = load_foreon_layout()
+    except Exception:
+        pass
 
     if _saved_foreon and _saved_foreon.get("fixtures"):
         st.session_state.foreon_fixtures = _saved_foreon["fixtures"]
@@ -3989,6 +3988,14 @@ elif menu == "🏪 포레온 시뮬레이션":
 
     _foreon_fx_json = _json.dumps(st.session_state.foreon_fixtures, ensure_ascii=False)
     _foreon_fac_json = _json.dumps(st.session_state.foreon_facilities, ensure_ascii=False)
+
+    # Supabase Storage 직접 저장용 설정 (배포 환경에서 localhost:8503 불가)
+    try:
+        from trend_config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+        _sb_url = SUPABASE_URL or ""
+        _sb_key = SUPABASE_SERVICE_ROLE_KEY or ""
+    except Exception:
+        _sb_url, _sb_key = "", ""
 
     _foreon_editor_html = f"""
     <div id="editor-root" style="width:100%;height:480px;position:relative;background:#f8f8f8;border:1px solid #ddd;border-radius:8px;overflow:hidden;">
@@ -4393,15 +4400,26 @@ elif menu == "🏪 포레온 시뮬레이션":
     }}
 
     function onFixtureDblClick(fx) {{
-      fetch('http://localhost:8503/foreon-select-fixture', {{
-        method:'POST',
-        headers:{{'Content-Type':'application/json'}},
-        body:JSON.stringify({{fixture_id: fx.id}}),
+      // /tmp 파일 대신 Supabase Storage에 선택 상태 저장
+      const selData = JSON.stringify({{fixture_id: fx.id, ts: Date.now()}});
+      fetch(SB_URL + '/storage/v1/object/layouts/foreon_selected_fx.json', {{
+        method:'PUT',
+        headers:{{
+          'Content-Type':'application/json',
+          'apikey': SB_KEY,
+          'Authorization': 'Bearer ' + SB_KEY,
+          'x-upsert': 'true',
+        }},
+        body: selData,
       }}).then(()=>{{
         window.parent.postMessage({{type:'streamlit:setComponentValue',value:fx.id}}, '*');
         window.parent.location.hash = 'foreon-detail-' + fx.id;
         window.parent.location.reload();
-      }}).catch(()=>{{}});
+      }}).catch(()=>{{
+        // 폴백: 그냥 리로드
+        window.parent.location.hash = 'foreon-detail-' + fx.id;
+        window.parent.location.reload();
+      }});
     }}
 
     function onFacilityDblClick(fac) {{
@@ -4461,6 +4479,9 @@ elif menu == "🏪 포레온 시뮬레이션":
       }}
     }}
 
+    const SB_URL = '{_sb_url}';
+    const SB_KEY = '{_sb_key}';
+
     function saveLayout() {{
       const btn=document.getElementById('saveBtn');
       btn.textContent='저장 중...'; btn.style.background='#888';
@@ -4468,17 +4489,29 @@ elif menu == "🏪 포레온 시뮬레이션":
         fixtures:fixtures.map(f=>({{id:f.id,type:f.type,no:f.no,x:Math.round(f.x),y:Math.round(f.y),orient:f.orient,zone:f.zone||'',label:f.label||''}})),
         facilities:facilities.map(f=>({{id:f.id,name:f.name,x:Math.round(f.x),y:Math.round(f.y),w:Math.round(f.w),h:Math.round(f.h),label:f.label||''}})),
       }});
-      fetch('http://localhost:8503/save-foreon-layout', {{
-        method:'POST',
-        headers:{{'Content-Type':'application/json'}},
+
+      // Supabase Storage에 직접 저장 (배포 환경 호환)
+      const storageUrl = SB_URL + '/storage/v1/object/layouts/foreon_layout.json';
+      fetch(storageUrl, {{
+        method:'PUT',
+        headers:{{
+          'Content-Type':'application/json',
+          'apikey': SB_KEY,
+          'Authorization': 'Bearer ' + SB_KEY,
+          'x-upsert': 'true',
+        }},
         body:data,
       }})
-      .then(r=>r.json())
+      .then(r=>{{
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        return r.json();
+      }})
       .then(res=>{{
         btn.textContent='저장 완료!'; btn.style.background='#27ae60';
         setTimeout(()=>{{btn.textContent='레이아웃 저장';btn.style.background='#FF8C00';}},2500);
       }})
       .catch(err=>{{
+        console.error('Save error:', err);
         btn.textContent='저장 실패!'; btn.style.background='#e74c3c';
         setTimeout(()=>{{btn.textContent='레이아웃 저장';btn.style.background='#FF8C00';}},3000);
       }});
@@ -4510,16 +4543,29 @@ elif menu == "🏪 포레온 시뮬레이션":
     _fp = st.session_state.foreon_placements
     _fp_df = pd.DataFrame(_fp) if _fp else pd.DataFrame()
 
-    # 더블클릭으로 선택된 매대 읽기
+    # 더블클릭으로 선택된 매대 읽기 (Supabase Storage + /tmp 폴백)
     _dblclick_fx = None
     try:
-        with open("/tmp/foreon_selected_fx.txt", "r") as f:
-            _dblclick_fx = f.read().strip()
-        # 읽은 후 파일 초기화
-        with open("/tmp/foreon_selected_fx.txt", "w") as f:
-            f.write("")
+        import requests as _requests
+        _sel_url = f"{_sb_url}/storage/v1/object/layouts/foreon_selected_fx.json"
+        _sel_headers = {"apikey": _sb_key, "Authorization": f"Bearer {_sb_key}", "Cache-Control": "no-cache"}
+        _sel_resp = _requests.get(_sel_url, headers=_sel_headers, timeout=5)
+        if _sel_resp.status_code == 200:
+            _sel_data = _sel_resp.json()
+            _dblclick_fx = _sel_data.get("fixture_id", "")
+            if _dblclick_fx:
+                # 읽은 후 초기화
+                _requests.put(_sel_url, headers={**_sel_headers, "Content-Type": "application/json", "x-upsert": "true"}, data=b'{"fixture_id":""}', timeout=5)
     except Exception:
         pass
+    if not _dblclick_fx:
+        try:
+            with open("/tmp/foreon_selected_fx.txt", "r") as f:
+                _dblclick_fx = f.read().strip()
+            with open("/tmp/foreon_selected_fx.txt", "w") as f:
+                f.write("")
+        except Exception:
+            pass
 
     # 더블클릭 결과를 세션에 저장
     if _dblclick_fx:

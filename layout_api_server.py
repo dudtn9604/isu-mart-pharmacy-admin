@@ -41,17 +41,25 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/save-foreon-layout":
             length = int(self.headers["Content-Length"])
             data = json.loads(self.rfile.read(length))
+            saved_db = False
             try:
-                with open(str(FOREON_LAYOUT_FILE), "w", encoding="utf-8") as f:
-                    json.dump(data, f, ensure_ascii=False, indent=2)
-            except Exception:
-                pass
+                from shelf_data import save_foreon_layout
+                saved_db = save_foreon_layout(data)
+            except Exception as e:
+                print(f"[API] save_foreon_layout error: {e}", flush=True)
+            # 로컬 파일 백업 (save_foreon_layout 내부에서도 하지만 안전하게)
+            if not saved_db:
+                try:
+                    with open(str(FOREON_LAYOUT_FILE), "w", encoding="utf-8") as f:
+                        json.dump(data, f, ensure_ascii=False, indent=2)
+                except Exception:
+                    pass
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             fx_count = len(data.get("fixtures", []))
-            self.wfile.write(json.dumps({"ok": True, "count": fx_count}).encode())
+            self.wfile.write(json.dumps({"ok": True, "count": fx_count, "db": saved_db}).encode())
 
         elif self.path == "/foreon-select-fixture":
             length = int(self.headers["Content-Length"])

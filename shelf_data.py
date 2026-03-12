@@ -1270,3 +1270,86 @@ def get_showcard_by_id(showcard_id: str) -> Optional[Dict]:
         return res.data[0] if res.data else None
     except Exception:
         return None
+
+
+# ──────────────────────────────────────
+# 포레온 레이아웃 저장/로드 (Supabase Storage)
+# ──────────────────────────────────────
+import json as _json
+from pathlib import Path as _Path
+
+_FOREON_LAYOUT_FILE = _Path(__file__).parent / "foreon_layout.json"
+_LAYOUT_BUCKET = "layouts"
+_FOREON_STORAGE_PATH = "foreon_layout.json"
+
+
+def _get_storage_url():
+    """Supabase Storage REST URL 및 헤더 반환"""
+    try:
+        from trend_config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+        if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY:
+            return (
+                f"{SUPABASE_URL}/storage/v1",
+                {
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                },
+            )
+    except Exception:
+        pass
+    return None, None
+
+
+def save_foreon_layout(data: Dict[str, Any]) -> bool:
+    """포레온 레이아웃을 Supabase Storage에 저장 (로컬 파일도 백업)"""
+    import requests as _req
+
+    # 로컬 파일 백업
+    try:
+        with open(str(_FOREON_LAYOUT_FILE), "w", encoding="utf-8") as f:
+            _json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+    base_url, headers = _get_storage_url()
+    if not base_url:
+        return False
+    try:
+        data_bytes = _json.dumps(data, ensure_ascii=False).encode("utf-8")
+        resp = _req.put(
+            f"{base_url}/object/{_LAYOUT_BUCKET}/{_FOREON_STORAGE_PATH}",
+            headers={**headers, "Content-Type": "application/json", "x-upsert": "true"},
+            data=data_bytes,
+            timeout=10,
+        )
+        return resp.status_code == 200
+    except Exception as e:
+        print(f"[save_foreon_layout] Supabase Storage error: {e}", flush=True)
+        return False
+
+
+def load_foreon_layout() -> Optional[Dict[str, Any]]:
+    """포레온 레이아웃을 Supabase Storage에서 로드 (실패 시 로컬 파일 폴백)"""
+    import requests as _req
+
+    base_url, headers = _get_storage_url()
+    if base_url:
+        try:
+            resp = _req.get(
+                f"{base_url}/object/{_LAYOUT_BUCKET}/{_FOREON_STORAGE_PATH}",
+                headers={**headers, "Cache-Control": "no-cache, no-store"},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                return resp.json()
+        except Exception as e:
+            print(f"[load_foreon_layout] Supabase Storage error: {e}", flush=True)
+
+    # 폴백: 로컬 파일
+    if _FOREON_LAYOUT_FILE.exists():
+        try:
+            with open(str(_FOREON_LAYOUT_FILE), "r", encoding="utf-8") as f:
+                return _json.load(f)
+        except Exception:
+            pass
+    return None
