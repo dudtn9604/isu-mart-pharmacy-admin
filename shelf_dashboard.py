@@ -3543,6 +3543,7 @@ elif menu == "🏷️ 쇼카드 제작":
     else:
         st.info("아직 제작 이력이 없습니다.")
 
+
 # ======================================================================
 # 포레온 시뮬레이션
 # ======================================================================
@@ -3551,94 +3552,127 @@ elif menu == "🏪 포레온 시뮬레이션":
     # 포레온 매장 규격 (mm)
     FOREON_W = 27323
     FOREON_H = 7487
-    # 이수 매장 규격 (mm) — 기존 STORE_W, STORE_H 재사용
-    ISU_W = STORE_W  # 12215
-    ISU_H = STORE_H  # 17848
 
-    def _auto_arrange_fixtures(num_a, num_b, num_c, store_w=FOREON_W, store_h=FOREON_H):
-        """포레온 매장에 매대 자동 배치"""
+    def _auto_arrange_fixtures(num_a, num_b, num_c):
+        """
+        포레온 매장 매대 자동 배치 — 리테일 정석 레이아웃.
+
+        이수점 패턴 참고: 양면 곤돌라(back-to-back 쌍) 세로 배치,
+        C 엔드캡은 각 곤돌라 열 양 끝에 가로 배치.
+
+        포레온은 가로 27m × 세로 7.5m (가로가 넓은 형태)이므로
+        곤돌라 열을 세로 방향(depth)으로 세우고, 열을 가로 방향으로 나열.
+
+        레이아웃:
+        ┌─────────────────────────────────────────────────────────┐
+        │ [조제실]  [약품수납장]                        [냉장고]  │ ← 후면 벽
+        │                                                         │
+        │   C    C    C    C    C    C    C    C    C    C         │ ← 상단 엔드캡
+        │  ║A║  ║A║  ║A║  ║A║  ║B║  ║B║  ║B║  ║B║  ║B║          │
+        │  ║A║  ║A║  ║A║  ║A║  ║B║  ║B║  ║B║  ║B║  ║B║          │ ← 곤돌라 열
+        │  ║A║  ║A║  ║A║  ║A║  ║B║  ║B║  ║B║                    │   (세로 방향)
+        │   C    C    C    C    C    C    C    C    C    C         │ ← 하단 엔드캡
+        │                                                         │
+        │ [POS]  [프로모션]         [대기]         [입구]          │ ← 전면 (입구쪽)
+        └─────────────────────────────────────────────────────────┘
+        """
         fixtures = []
 
-        margin_top = 1200
-        margin_bottom = 800
-        margin_left = 1500
-        margin_right = 1500
+        # 고정 영역 마진 (mm)
+        margin_front = 1800   # 전면: 입구/POS 영역
+        margin_back = 2600    # 후면: 조제실/약품수납장
+        margin_left = 4200    # 좌측: 조제실 옆 여유
+        margin_right = 1800   # 우측: 냉장고 옆 여유
 
-        avail_w = store_w - margin_left - margin_right
-        avail_h = store_h - margin_top - margin_bottom
+        # 가용 영역
+        avail_w = FOREON_W - margin_left - margin_right   # 가로 (곤돌라 열 나열 방향)
+        avail_h = FOREON_H - margin_front - margin_back   # 세로 (곤돌라 깊이 방향)
 
-        unit_w = 900
-        unit_d = 360
-        aisle = 1200
+        # 매대 치수
+        shelf_w = 900    # A매대 선반 폭 (= 곤돌라에서 세로로 세울 때 높이)
+        shelf_d = 360    # 매대 깊이
+        gap = 40         # back-to-back 간격
 
-        gondola_depth = unit_d * 2
-        row_pitch = gondola_depth + aisle
-        num_rows = max(1, int(avail_h / row_pitch))
+        # 곤돌라 열: 양면(back-to-back) 쌍 = 2 × shelf_d + gap
+        gondola_pair_w = shelf_d * 2 + gap   # ~760mm
+        aisle_w = 1200   # 통로 폭
+        col_pitch = gondola_pair_w + aisle_w  # ~1960mm
 
-        c_w = 636
-        usable_w_per_row = avail_w - c_w * 2
-        units_per_row = max(1, int(usable_w_per_row / unit_w))
+        # 곤돌라 열당 매대 수 (세로 방향으로 쌓기)
+        shelves_per_col = max(1, int(avail_h / shelf_w))  # 세로 가용 / 매대폭
 
+        # 가용 곤돌라 열 수 (가로 방향)
+        max_cols = max(1, int(avail_w / col_pitch))
+
+        # 배치 시작
         ab_total = num_a + num_b
-        ab_placed = 0
         a_placed = 0
         b_placed = 0
         c_placed = 0
 
-        for row_idx in range(num_rows):
-            if ab_placed >= ab_total and c_placed >= num_c:
-                break
+        # 곤돌라 열 구성: 각 열에 shelves_per_col개의 A/B 매대 (양면 = ×2)
+        col_idx = 0
+        while col_idx < max_cols and (a_placed + b_placed) < ab_total:
+            col_x = margin_left + col_idx * col_pitch
 
-            row_y = margin_top + row_idx * row_pitch + aisle // 2
-
-            if c_placed < num_c:
-                c_placed += 1
-                fixtures.append({
-                    "shelf_type": "C", "fixture_no": c_placed,
-                    "x": margin_left, "y": row_y,
-                    "w": c_w, "h": gondola_depth,
-                    "orientation": "V",
-                })
-
-            start_x = margin_left + c_w + 50
-            last_col = 0
-            for col_idx in range(units_per_row):
-                if ab_placed >= ab_total:
+            # 한 열에 좌측/우측 2줄 (양면 곤돌라)
+            for side in range(2):
+                if (a_placed + b_placed) >= ab_total:
                     break
-                last_col = col_idx + 1
-                x = start_x + col_idx * unit_w
-                if a_placed < num_a:
-                    a_placed += 1
-                    fixtures.append({
-                        "shelf_type": "A", "fixture_no": a_placed,
-                        "x": x, "y": row_y,
-                        "w": unit_w, "h": gondola_depth,
-                        "orientation": "H",
-                    })
-                elif b_placed < num_b:
-                    b_placed += 1
-                    fixtures.append({
-                        "shelf_type": "B", "fixture_no": b_placed,
-                        "x": x, "y": row_y,
-                        "w": 930, "h": gondola_depth,
-                        "orientation": "H",
-                    })
-                ab_placed += 1
+                x = col_x + side * (shelf_d + gap)
 
+                for row in range(shelves_per_col):
+                    if (a_placed + b_placed) >= ab_total:
+                        break
+                    y = margin_back + row * shelf_w
+
+                    if a_placed < num_a:
+                        a_placed += 1
+                        fixtures.append({
+                            "shelf_type": "A", "fixture_no": a_placed,
+                            "x": x, "y": y,
+                            "w": shelf_d, "h": shelf_w,  # V orientation: 360 × 900
+                            "orientation": "V",
+                        })
+                    elif b_placed < num_b:
+                        b_placed += 1
+                        fixtures.append({
+                            "shelf_type": "B", "fixture_no": b_placed,
+                            "x": x, "y": y,
+                            "w": shelf_d, "h": 930,  # B는 930mm
+                            "orientation": "V",
+                        })
+
+            # C 엔드캡: 곤돌라 열 상단/하단에 가로 배치
+            endcap_center_x = col_x + gondola_pair_w // 2 - 636 // 2
+
+            # 상단 엔드캡 (조제실 쪽)
             if c_placed < num_c:
                 c_placed += 1
-                right_x = start_x + max(last_col, 1) * unit_w + 50
                 fixtures.append({
                     "shelf_type": "C", "fixture_no": c_placed,
-                    "x": min(right_x, store_w - margin_right - c_w), "y": row_y,
-                    "w": c_w, "h": gondola_depth,
-                    "orientation": "V",
+                    "x": endcap_center_x, "y": margin_back - 400,
+                    "w": 636, "h": 360,
+                    "orientation": "H",
                 })
+
+            # 하단 엔드캡 (입구 쪽)
+            if c_placed < num_c:
+                c_placed += 1
+                bottom_y = margin_back + shelves_per_col * shelf_w + 40
+                fixtures.append({
+                    "shelf_type": "C", "fixture_no": c_placed,
+                    "x": endcap_center_x, "y": bottom_y,
+                    "w": 636, "h": 360,
+                    "orientation": "H",
+                })
+
+            col_idx += 1
 
         return fixtures
 
     def _assign_products_sim(num_a, num_b, num_c):
-        """이수 매출 데이터 기반 포레온 상품 배정 시뮬레이션"""
+        """매출 데이터 기반 포레온 상품 배정 시뮬레이션"""
         try:
             dims = get_all_dimensions()
         except Exception:
@@ -3726,13 +3760,11 @@ elif menu == "🏪 포레온 시뮬레이션":
     # ── Step 1: 매장 규격 & 매대 수량 설정 ──
     st.markdown("## Step 1. 매장 규격 & 매대 수량 설정")
 
-    col1, col2, col3, col4 = st.columns(4)
-    isu_area = ISU_W * ISU_H / 1_000_000
+    col1, col2, col3 = st.columns(3)
     foreon_area = FOREON_W * FOREON_H / 1_000_000
-    col1.metric("이수 면적", f"{isu_area:.1f} m²")
-    col2.metric("포레온 면적", f"{foreon_area:.1f} m²", delta=f"{(foreon_area - isu_area) / isu_area * 100:+.0f}%")
-    col3.metric("이수 (W×H)", f"{ISU_W / 1000:.1f} × {ISU_H / 1000:.1f} m")
-    col4.metric("포레온 (W×H)", f"{FOREON_W / 1000:.1f} × {FOREON_H / 1000:.1f} m")
+    col1.metric("매장 면적", f"{foreon_area:.1f} m²")
+    col2.metric("가로 (W)", f"{FOREON_W / 1000:.1f} m")
+    col3.metric("세로 (H)", f"{FOREON_H / 1000:.1f} m")
 
     st.divider()
 
@@ -3770,15 +3802,22 @@ elif menu == "🏪 포레온 시뮬레이션":
 
     fig = go.Figure()
 
+    # 매장 외벽
     fig.add_shape(type="rect", x0=0, y0=0, x1=FOREON_W, y1=FOREON_H,
                   line=dict(color="black", width=2), fillcolor="rgba(245,245,245,0.5)")
 
+    # 고정 시설물
     fixed_elements = [
-        {"name": "입구", "x": 1000, "y": FOREON_H - 600, "w": 2500, "h": 600, "c": "#DDD"},
-        {"name": "POS", "x": 200, "y": FOREON_H - 1800, "w": 1200, "h": 1000, "c": "#E8D5B7"},
+        # 전면 (입구쪽, y가 큼 = 하단)
+        {"name": "입구", "x": FOREON_W - 3500, "y": FOREON_H - 500, "w": 2500, "h": 500, "c": "#DDD"},
+        {"name": "POS", "x": 400, "y": FOREON_H - 1600, "w": 1800, "h": 1000, "c": "#E8D5B7"},
+        {"name": "프로모션 존", "x": 8000, "y": FOREON_H - 1400, "w": 3000, "h": 1000, "c": "#FCE4EC"},
+        {"name": "대기 공간", "x": 18000, "y": FOREON_H - 1400, "w": 2000, "h": 1000, "c": "#E8F5E9"},
+        # 후면 (벽쪽, y가 작음 = 상단)
         {"name": "조제실", "x": 200, "y": 200, "w": 3500, "h": 2200, "c": "#D4E6F1"},
+        {"name": "약품 수납장", "x": 3900, "y": 200, "w": 3000, "h": 1200, "c": "#F3E5F5"},
         {"name": "냉장고", "x": FOREON_W - 1500, "y": 200, "w": 1300, "h": 3000, "c": "#B3E5FC"},
-        {"name": "프로모션 존", "x": 12000, "y": FOREON_H - 1200, "w": 3000, "h": 1000, "c": "#FCE4EC"},
+        {"name": "창고", "x": FOREON_W - 1500, "y": 3400, "w": 1300, "h": 2000, "c": "#E8E8E8"},
     ]
 
     for f in fixed_elements:
@@ -3787,8 +3826,9 @@ elif menu == "🏪 포레온 시뮬레이션":
                       line=dict(color="#999", width=1), fillcolor=f["c"])
         fig.add_annotation(x=f["x"] + f["w"] / 2, y=f["y"] + f["h"] / 2,
                            text=f["name"], showarrow=False,
-                           font=dict(size=10, color="#666"))
+                           font=dict(size=9, color="#666"))
 
+    # 매대 그리기
     for fx in fixtures:
         stype = fx["shelf_type"]
         fig.add_shape(
@@ -3804,6 +3844,16 @@ elif menu == "🏪 포레온 시뮬레이션":
             font=dict(size=6, color="black"),
         )
 
+    # 통로 방향 화살표 (동선 가이드)
+    fig.add_annotation(
+        x=FOREON_W // 2, y=FOREON_H - 300,
+        ax=FOREON_W // 2, ay=FOREON_H - 1500,
+        text="동선", showarrow=True,
+        arrowhead=2, arrowsize=1.5, arrowcolor="#999",
+        font=dict(size=8, color="#999"),
+    )
+
+    # 범례
     for stype, color in TYPE_COLORS.items():
         name = SHELF_CONFIGS[stype]["name"]
         count = {"A": num_a, "B": num_b, "C": num_c}[stype]
@@ -3900,83 +3950,3 @@ elif menu == "🏪 포레온 시뮬레이션":
         ))
         fig_gauge.update_layout(height=300)
         st.plotly_chart(fig_gauge, use_container_width=True)
-
-    st.divider()
-
-    # ── Step 4: 이수 vs 포레온 비교 ──
-    st.markdown("## Step 4. 이수 vs 포레온 비교")
-
-    isu_a, isu_b, isu_c = SHELF_CONFIGS["A"]["count"], SHELF_CONFIGS["B"]["count"], SHELF_CONFIGS["C"]["count"]
-    isu_total = isu_a + isu_b + isu_c
-    foreon_total = num_a + num_b + num_c
-
-    isu_shelves = isu_total * 5
-    foreon_shelves = total_shelves
-
-    isu_area_val = ISU_W * ISU_H / 1_000_000
-    foreon_area_val = FOREON_W * FOREON_H / 1_000_000
-
-    compare_data = pd.DataFrame({
-        "항목": ["면적 (m²)", "매대 수", "선반 수 (단면)", "A 매대", "B 매대", "C 매대",
-                "면적당 매대 (대/m²)", "면적당 선반 (개/m²)"],
-        "이수 (1호점)": [
-            f"{isu_area_val:.1f}", str(isu_total), str(isu_shelves),
-            str(isu_a), str(isu_b), str(isu_c),
-            f"{isu_total / isu_area_val:.2f}", f"{isu_shelves / isu_area_val:.1f}",
-        ],
-        "포레온 (2호점)": [
-            f"{foreon_area_val:.1f}", str(foreon_total), str(foreon_shelves),
-            str(num_a), str(num_b), str(num_c),
-            f"{foreon_total / foreon_area_val:.2f}" if foreon_area_val > 0 else "-",
-            f"{foreon_shelves / foreon_area_val:.1f}" if foreon_area_val > 0 else "-",
-        ],
-    })
-
-    st.dataframe(compare_data, use_container_width=True, hide_index=True)
-
-    comp_col1, comp_col2 = st.columns(2)
-
-    with comp_col1:
-        fig_comp = go.Figure(data=[
-            go.Bar(name="이수", x=["A매대", "B매대", "C매대", "총 매대"],
-                   y=[isu_a, isu_b, isu_c, isu_total],
-                   marker_color="#4A90D9"),
-            go.Bar(name="포레온", x=["A매대", "B매대", "C매대", "총 매대"],
-                   y=[num_a, num_b, num_c, foreon_total],
-                   marker_color="#FF8C00"),
-        ])
-        fig_comp.update_layout(
-            title="매대 수 비교", barmode="group", height=350,
-            legend=dict(orientation="h", yanchor="bottom", y=-0.2),
-        )
-        st.plotly_chart(fig_comp, use_container_width=True)
-
-    with comp_col2:
-        fig_eff = go.Figure(data=[
-            go.Bar(name="이수", x=["면적당 매대", "면적당 선반"],
-                   y=[isu_total / isu_area_val, isu_shelves / isu_area_val],
-                   marker_color="#4A90D9"),
-            go.Bar(name="포레온", x=["면적당 매대", "면적당 선반"],
-                   y=[foreon_total / foreon_area_val if foreon_area_val > 0 else 0,
-                      foreon_shelves / foreon_area_val if foreon_area_val > 0 else 0],
-                   marker_color="#FF8C00"),
-        ])
-        fig_eff.update_layout(
-            title="면적 대비 효율 비교 (대·개 / m²)", barmode="group", height=350,
-            legend=dict(orientation="h", yanchor="bottom", y=-0.2),
-        )
-        st.plotly_chart(fig_eff, use_container_width=True)
-
-    if isinstance(assigned, pd.DataFrame) and not assigned.empty and summary:
-        st.markdown("### SKU 배정 비교")
-        try:
-            from supabase_client import is_supabase_configured, fetch_products
-            isu_sku_count = len(fetch_products()) if is_supabase_configured() else 0
-        except Exception:
-            isu_sku_count = 0
-        sku_comp = pd.DataFrame({
-            "매장": ["이수 (1호점)", "포레온 (2호점)"],
-            "총 SKU": [isu_sku_count, summary["assigned_count"]],
-            "매출 커버리지": ["-", f"{summary['total_sales_coverage']}%"],
-        })
-        st.dataframe(sku_comp, use_container_width=True, hide_index=True)
