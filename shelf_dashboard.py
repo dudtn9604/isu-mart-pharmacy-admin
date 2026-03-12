@@ -3217,8 +3217,13 @@ elif menu == "🏷️ 쇼카드 제작":
         dims_dict = {row["product_name"]: row.to_dict() for _, row in all_dims_df.iterrows()}
     else:
         dims_dict = {}
-    all_products_raw = get_current_placements()
-    product_names = sorted(set(p["product_name"] for p in all_products_raw if p.get("product_name")))
+    all_products_raw_df = get_current_placements()
+    if not all_products_raw_df.empty and "product_name" in all_products_raw_df.columns:
+        all_products_raw = all_products_raw_df.to_dict("records")
+        product_names = sorted(set(p["product_name"] for p in all_products_raw if p.get("product_name")))
+    else:
+        all_products_raw = []
+        product_names = []
 
     # ── 상품 선택 ──
     st.subheader("1️⃣ 상품 선택")

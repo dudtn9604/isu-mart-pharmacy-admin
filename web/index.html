@@ -188,14 +188,6 @@
       <span class="badge" id="tiers-badge">0단 활성</span>
     </header>
     <div class="form-card">
-      <!-- 매장 전체 통계 -->
-      <div class="form-step">
-        <label class="form-label">📊 매장 전체 단 활용 현황</label>
-        <div id="tier-stats"></div>
-      </div>
-
-      <div style="height:1px;background:var(--border);margin:16px 0;"></div>
-
       <!-- 매대 선택 및 단 설정 -->
       <div class="form-step">
         <label class="form-label">1. 매대 타입</label>
@@ -216,9 +208,17 @@
 
       <div style="height:1px;background:var(--border);margin:16px 0;"></div>
 
+      <!-- 매장 전체 통계 -->
+      <div class="form-step">
+        <label class="form-label">매장 전체 단 활용 현황</label>
+        <div id="tier-stats"></div>
+      </div>
+
+      <div style="height:1px;background:var(--border);margin:16px 0;"></div>
+
       <!-- 매대별 활성 단 현황 -->
       <div class="form-step">
-        <label class="form-label">🗂️ 매대별 활성 단 현황</label>
+        <label class="form-label">매대별 활성 단 현황</label>
         <div class="chip-group" id="tier-overview-filter" style="margin-bottom:8px;"></div>
         <div id="tier-overview-list"></div>
       </div>

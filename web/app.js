@@ -817,6 +817,7 @@ async function submitPlacement() {
     renderMap();
     renderList();
     renderRecentPlacements();
+    renderDimsMissing();
   } catch (err) {
     console.error('배치 등록 실패:', err);
     showToast('등록 실패: ' + err.message, true);
