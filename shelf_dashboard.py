@@ -54,7 +54,7 @@ from shelf_data import (
 # 페이지 설정
 # ──────────────────────────────────────
 st.set_page_config(
-    page_title="매대 위치별 성과 트래킹",
+    page_title="매대 통합관리 시스템",
     page_icon="🗄️",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -122,20 +122,70 @@ def load_sale_cost_records(date_from: str, date_to: str):
 # ──────────────────────────────────────
 # 사이드바 메뉴
 # ──────────────────────────────────────
-st.sidebar.title("🗄️ 매대 성과 트래킹")
+st.sidebar.title("🗄️ 매대 통합관리 시스템")
 st.sidebar.markdown("---")
 
-_menu_items = ["🗺️ 매장 배치도", "✏️ 배치 관리", "📊 위치별 성과 분석", "📐 SKU 치수 관리", "🛒 교차판매 분석", "🏷️ 쇼카드 제작", "🏪 포레온 시뮬레이션"]
-_qp = st.query_params
-_saved_menu = _qp.get("menu", _menu_items[0])
-_default_idx = _menu_items.index(_saved_menu) if _saved_menu in _menu_items else 0
+# 대메뉴 → 소메뉴 구조
+_menu_structure = [
+    ("현장 관리", ["🗺️ 매장 배치도", "✏️ 배치 관리"]),
+    ("성과 인사이트", ["📊 위치별 성과 분석", "🛒 교차판매 분석"]),
+    ("상품 관리", ["📐 SKU 치수 관리", "🏷️ 쇼카드 제작"]),
+    ("기타", ["🏪 포레온 시뮬레이션"]),
+]
+_all_menu_items = [item for _, items in _menu_structure for item in items]
 
-menu = st.sidebar.radio(
-    "메뉴",
-    _menu_items,
-    index=_default_idx,
-    label_visibility="collapsed",
-)
+_qp = st.query_params
+_saved_menu = _qp.get("menu", _all_menu_items[0])
+if _saved_menu not in _all_menu_items:
+    _saved_menu = _all_menu_items[0]
+
+# 메뉴 클릭 콜백
+def _set_menu(item):
+    st.session_state["_active_menu"] = item
+
+if "_active_menu" not in st.session_state:
+    st.session_state["_active_menu"] = _saved_menu
+
+# 사이드바 렌더링: 대메뉴 레이블 + 소메뉴 버튼
+_sidebar_css = """
+<style>
+div[data-testid="stSidebar"] .menu-section-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 1rem 0 0.3rem 0;
+    padding: 0;
+}
+div[data-testid="stSidebar"] .menu-section-label:first-child {
+    margin-top: 0;
+}
+</style>
+"""
+st.sidebar.markdown(_sidebar_css, unsafe_allow_html=True)
+
+for section_name, section_items in _menu_structure:
+    st.sidebar.markdown(
+        f'<p class="menu-section-label">{section_name}</p>',
+        unsafe_allow_html=True,
+    )
+    for item in section_items:
+        is_active = st.session_state["_active_menu"] == item
+        if is_active:
+            st.sidebar.markdown(
+                f"**→ {item}**",
+            )
+        else:
+            st.sidebar.button(
+                item,
+                key=f"menu_btn_{item}",
+                on_click=_set_menu,
+                args=(item,),
+                use_container_width=True,
+            )
+
+menu = st.session_state["_active_menu"]
 if _qp.get("menu") != menu:
     st.query_params["menu"] = menu
 
@@ -4071,12 +4121,57 @@ elif menu == "🏷️ 쇼카드 제작":
         # ── 다운로드 ──
         st.subheader("6️⃣ 다운로드")
 
-        _design_type = "A" if design_idx == 0 else "B"
-        pdf_bytes = _gen_pdf_bytes(
-            _design_type, w_mm, h_mm, sc_color, sc_badge,
-            final_l1, final_l2, final_l3, size_spec, common_spec,
-            header_text=final_header, top_color=sc_top_color, bot_color=sc_bot_color,
-        )
+        def _svg_to_pdf_cairosvg(svg_str, w_mm, h_mm):
+            """cairosvg로 SVG→PDF 직접 변환 (프리뷰와 동일한 결과)"""
+            try:
+                import cairosvg, re
+                # 모든 font-family 속성을 한글 호환 폰트로 치환
+                _KR_FONTS = "Noto Sans CJK KR, Noto Sans KR, Apple SD Gothic Neo, sans-serif"
+                svg_fixed = re.sub(
+                    r'font-family="[^"]*"',
+                    f'font-family="{_KR_FONTS}"',
+                    svg_str,
+                )
+                # bleed 3mm, scale=3 (px = mm*3)
+                bleed_px = 9  # 3mm * 3
+                w_px = w_mm * 3
+                h_px = h_mm * 3
+                total_w = w_px + bleed_px * 2
+                total_h = h_px + bleed_px * 2
+                # 원본 SVG를 nested SVG로 bleed 안쪽에 배치
+                wrapper = (
+                    f'<svg xmlns="http://www.w3.org/2000/svg" '
+                    f'viewBox="0 0 {total_w} {total_h}" '
+                    f'width="{total_w}" height="{total_h}">'
+                    f'<svg x="{bleed_px}" y="{bleed_px}" width="{w_px}" height="{h_px}">'
+                    f'{_svg_inner(svg_fixed)}'
+                    f'</svg></svg>'
+                )
+                pdf = cairosvg.svg2pdf(bytestring=wrapper.encode("utf-8"))
+                return pdf
+            except Exception:
+                import traceback; traceback.print_exc()
+                return None
+
+        def _svg_inner(svg_str):
+            """SVG 루트 태그를 제거하고 내부 요소만 반환"""
+            import re
+            # <svg ...> 태그 제거
+            inner = re.sub(r'<svg[^>]*>', '', svg_str, count=1)
+            # 마지막 </svg> 제거
+            idx = inner.rfind('</svg>')
+            if idx >= 0:
+                inner = inner[:idx] + inner[idx+6:]
+            return inner
+
+        pdf_bytes = _svg_to_pdf_cairosvg(selected_svg, w_mm, h_mm)
+        if not pdf_bytes:
+            _design_type = "A" if design_idx == 0 else "B"
+            pdf_bytes = _gen_pdf_bytes(
+                _design_type, w_mm, h_mm, sc_color, sc_badge,
+                final_l1, final_l2, final_l3, size_spec, common_spec,
+                header_text=final_header, top_color=sc_top_color, bot_color=sc_bot_color,
+            )
         design_label = ["solid", "split"][design_idx]
         filename = f"showcard_{sc_product}_{sc_size}_{design_label}.pdf"
 
