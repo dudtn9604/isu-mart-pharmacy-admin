@@ -3641,20 +3641,17 @@ elif menu == "🏷️ 쇼카드 제작":
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
         import os, glob
-        # 폰트 검색 경로 (로컬 macOS + Streamlit Cloud Linux)
-        search_paths = [
-            # Noto Sans CJK (packages.txt: fonts-noto-cjk)
+        # 프로젝트 내 폰트 최우선
+        _project_font = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts", "NotoSansKR-Bold.ttf")
+        search_paths = [_project_font]
+        # 시스템 폰트 (폴백)
+        search_paths += [
             "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
             "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-            "/usr/share/fonts/opentype/noto/NotoSansCJKkr-Bold.otf",
-            "/usr/share/fonts/opentype/noto/NotoSansCJKkr-Regular.otf",
-            # macOS
             os.path.expanduser("~/Library/Fonts/NotoSansKR-Black.ttf"),
-            os.path.expanduser("~/Library/Fonts/NotoSansKR-VariableFont_wght.ttf"),
             "/System/Library/Fonts/AppleSDGothicNeo.ttc",
         ]
-        # glob으로 추가 검색
-        for pattern in ["/usr/share/fonts/**/NotoSansCJK*", "/usr/share/fonts/**/NotoSansKR*"]:
+        for pattern in ["/usr/share/fonts/**/NotoSans*KR*", "/usr/share/fonts/**/NotoSansCJK*"]:
             search_paths.extend(glob.glob(pattern, recursive=True))
         bold_name, regular_name = "Helvetica-Bold", "Helvetica"
         registered = False
