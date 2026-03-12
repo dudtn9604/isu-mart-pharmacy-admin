@@ -25,7 +25,7 @@ def prepare_basket_data(
 ) -> pd.DataFrame:
     """
     주문 데이터 로드 → 플래트닝 → 조제/키인결제 제외
-    Returns: DataFrame[order_id, product_name, product_id, erp_category, quantity]
+    Returns: DataFrame[order_id, product_name, product_id, erp_category, erp_subcategory, quantity]
     """
     from supabase_client import fetch_orders, flatten_order_items, fetch_products
 
@@ -44,8 +44,12 @@ def prepare_basket_data(
     items = items[~items["erp_category"].isin(EXCLUDE_CATEGORIES)]
     items = items[~items["product_name"].isin(EXCLUDE_PRODUCTS)]
 
+    # erp_subcategory 없는 경우 빈 문자열로 채움
+    if "erp_subcategory" not in items.columns:
+        items["erp_subcategory"] = ""
+
     # 필요 컬럼만 반환
-    cols = ["order_id", "product_name", "product_id", "erp_category", "quantity"]
+    cols = ["order_id", "product_name", "product_id", "erp_category", "erp_subcategory", "quantity"]
     return items[cols].copy()
 
 
@@ -62,7 +66,8 @@ def compute_cooccurrence(
 
     Args:
         items_df: prepare_basket_data() 결과
-        level: "product" (상품명 기준) 또는 "category" (erp_category 기준)
+        level: "product" (상품명 기준), "category" (erp_category 기준),
+               또는 "subcategory" (erp_subcategory 기준)
 
     Returns: DataFrame[item_a, item_b, count, support_ab, support_a, support_b,
                         confidence_a_to_b, confidence_b_to_a, lift]
@@ -70,7 +75,12 @@ def compute_cooccurrence(
     if items_df.empty:
         return pd.DataFrame()
 
-    col = "product_name" if level == "product" else "erp_category"
+    if level == "product":
+        col = "product_name"
+    elif level == "subcategory":
+        col = "erp_subcategory"
+    else:
+        col = "erp_category"
 
     # 주문별 고유 아이템
     basket = items_df.groupby("order_id")[col].apply(lambda x: frozenset(x.unique())).reset_index()
@@ -226,23 +236,27 @@ def get_products_by_category_pair(
     cat_b: str,
     top_n: int = 20,
     min_count: int = 3,
+    level: str = "category",
 ) -> pd.DataFrame:
     """
-    두 카테고리 간 교차구매된 구체적 상품 쌍 반환
+    두 카테고리(또는 세부카테고리) 간 교차구매된 구체적 상품 쌍 반환
 
     Args:
         items_df: prepare_basket_data() 결과
         cat_a, cat_b: 카테고리 쌍
         top_n: 상위 N개
+        level: "category" 또는 "subcategory"
 
     Returns: DataFrame[product_a, cat_a, product_b, cat_b, count, lift]
     """
     if items_df.empty:
         return pd.DataFrame()
 
+    cat_col = "erp_subcategory" if level == "subcategory" else "erp_category"
+
     # 주문별 상품 그룹
     basket = items_df.groupby("order_id").apply(
-        lambda g: list(zip(g["product_name"], g["erp_category"]))
+        lambda g: list(zip(g["product_name"], g[cat_col]))
     ).reset_index(name="items")
 
     total_orders = len(basket)
@@ -273,7 +287,7 @@ def get_products_by_category_pair(
         return pd.DataFrame()
 
     # 카테고리 매핑
-    cat_map = items_df.drop_duplicates("product_name").set_index("product_name")["erp_category"].to_dict()
+    cat_map = items_df.drop_duplicates("product_name").set_index("product_name")[cat_col].to_dict()
 
     rows = []
     for (a, b), count in pair_counts.items():
@@ -344,18 +358,17 @@ def get_category_heatmap_data(
     items_df: pd.DataFrame,
     metric: str = "lift",
     min_count: int = 3,
+    level: str = "category",
 ) -> pd.DataFrame:
     """
-    카테고리 × 카테고리 매트릭스 반환 (heatmap용)
+    카테고리(또는 세부카테고리) × 카테고리 매트릭스 반환 (heatmap용)
 
     Args:
         metric: "lift", "confidence", 또는 "count"
-        min_count: 동시구매 횟수가 이 값 이상인 쌍만 포함 (기본 3)
-
-    count 메트릭: 상품 쌍 레벨에서 min_count 이상인 쌍의 건수를 카테고리별 합산
-    lift/confidence: 카테고리 레벨 동시출현 기반 (min_count 필터 적용)
+        min_count: (현재 미사용, 하위 호환용)
+        level: "category" 또는 "subcategory"
     """
-    cooc = compute_cooccurrence(items_df, level="category")
+    cooc = compute_cooccurrence(items_df, level=level)
 
     if cooc.empty:
         return pd.DataFrame()

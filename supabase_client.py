@@ -254,12 +254,15 @@ def flatten_order_items(
     if orders_df.empty:
         return pd.DataFrame()
 
-    # product_id → erp_category 매핑 (products 테이블 기반, 가장 정확)
+    # product_id → erp_category / erp_subcategory 매핑 (products 테이블 기반, 가장 정확)
     product_category_map = {}
+    product_subcategory_map = {}
     if products_df is not None and not products_df.empty:
         for _, p in products_df.iterrows():
             if p.get("id") and p.get("erp_category"):
                 product_category_map[p["id"]] = p["erp_category"]
+            if p.get("id") and p.get("erp_subcategory"):
+                product_subcategory_map[p["id"]] = p["erp_subcategory"]
 
     rows = []
     for _, order in orders_df.iterrows():
@@ -282,6 +285,8 @@ def flatten_order_items(
             else:
                 erp_cat = _normalize_category(raw_category)
 
+            erp_subcat = product_subcategory_map.get(product_id, "")
+
             rows.append({
                 "order_id": order.get("toss_order_id", ""),
                 "order_date": order_date_str,
@@ -290,6 +295,7 @@ def flatten_order_items(
                 "product_name": item.get("name", ""),
                 "raw_category": raw_category,
                 "erp_category": erp_cat,
+                "erp_subcategory": erp_subcat,
                 "quantity": item.get("quantity", 0),
                 "unit_price": item.get("price", 0),
                 "total_price": item.get("totalPrice", 0),
