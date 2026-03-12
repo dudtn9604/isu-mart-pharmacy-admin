@@ -3156,10 +3156,10 @@ elif menu == "🏷️ 쇼카드 제작":
         """디자인 A: 실제 쇼카드 — 단색 배경, 상단 배지, 중앙 설명, 하단 헤드라인"""
         r, pad = 12, 10
         badge_h = h_px * 0.16
-        # 폰트 크기 계산
+        # 폰트 크기 계산 — 실제 쇼카드 비율: 1줄≈헤드라인의 60%, 2줄≈55%
         fs3 = _auto_fit(l3, w_px - pad*2, 28, 12)
-        fs1 = _auto_fit(l1 or "", w_px - pad*2, 12, 8)
-        fs2 = max(fs1 - 1, 7)
+        fs1 = _auto_fit(l1 or "", w_px - pad*2, 20, 10)
+        fs2 = max(fs1 - 2, 9)
         # 배지
         if badge == "업그레이드":
             badge_el = _badge_svg_upgrade(w_px, pad)
@@ -3202,10 +3202,10 @@ elif menu == "🏷️ 쇼카드 제작":
                 return True
         top_text_fill = "#333" if _is_light(tc) else "#FFFFFF"
         bot_text_fill = "#333" if _is_light(bc) else "#FFFFFF"
-        # 폰트 크기
+        # 폰트 크기 — 실제 쇼카드 비율: 1줄≈헤드라인의 60%, 2줄≈55%
         fs3 = _auto_fit(l3, w_px - pad*2, 26, 12)
-        fs1 = _auto_fit(l1 or "", w_px - pad*2, 11, 7)
-        fs2 = max(fs1 - 1, 7)
+        fs1 = _auto_fit(l1 or "", w_px - pad*2, 18, 10)
+        fs2 = max(fs1 - 2, 9)
         # 배지 (상단 영역 안)
         badge_el = ""
         if badge != "none":
