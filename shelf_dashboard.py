@@ -3032,17 +3032,29 @@ elif menu == "🛒 교차판매 분석":
                     "Lift": "lift",
                 }[sc_sort_choice]
 
-                st.subheader(f"세부 카테고리 교차분석 Top 100 (by {sc_sort_choice})")
-                st.info(
-                    "**Lift > 1**: 우연보다 자주 함께 구매 | "
-                    "**Confidence**: A를 산 고객 중 B도 산 비율"
-                )
+                if sc_sort_col == "lift":
+                    st.subheader("세부 카테고리 교차분석 (by Lift, 10건 이상)")
+                    st.info(
+                        "**Lift > 1**: 우연보다 자주 함께 구매 | "
+                        "**Confidence**: A를 산 고객 중 B도 산 비율\n\n"
+                        "동시구매 10건 이상인 쌍만 표시합니다 (소량 건수의 과대 Lift 배제)."
+                    )
+                else:
+                    st.subheader(f"세부 카테고리 교차분석 Top 100 (by {sc_sort_choice})")
+                    st.info(
+                        "**Lift > 1**: 우연보다 자주 함께 구매 | "
+                        "**Confidence**: A를 산 고객 중 B도 산 비율"
+                    )
 
                 sc_cooc = compute_cooccurrence(sub_items, level="subcategory")
                 if sc_cooc.empty:
                     st.info("세부 카테고리 교차분석 데이터가 없습니다.")
                 else:
-                    sc_top = sc_cooc.sort_values(sc_sort_col, ascending=False).head(100).copy()
+                    sc_filtered = sc_cooc.copy()
+                    if sc_sort_col == "lift":
+                        # Lift 기준: 건수 적은 쌍의 과대 Lift 배제 (10건 이상만)
+                        sc_filtered = sc_filtered[sc_filtered["count"] >= 10]
+                    sc_top = sc_filtered.sort_values(sc_sort_col, ascending=False).head(100).copy()
                     sc_top["confidence_a_to_b"] = (sc_top["confidence_a_to_b"] * 100).round(1)
                     sc_top["confidence_b_to_a"] = (sc_top["confidence_b_to_a"] * 100).round(1)
                     sc_top["lift"] = sc_top["lift"].round(2)
