@@ -3768,14 +3768,15 @@ elif menu == "🏷️ 쇼카드 제작":
                         client = anthropic.Anthropic()
                         prompt = (
                             f"마트약국 쇼카드 카피라이터로서, 다음 원본 워딩을 기반으로 2가지 대안을 제안하세요.\n"
-                            f"오프라인 매장 쇼카드용으로 짧고 임팩트 있게 작성. 한 줄은 최대 15자 내외.\n\n"
+                            f"오프라인 매장 쇼카드용으로 짧고 임팩트 있게 작성. 한 줄은 최대 15자 내외.\n"
+                            f"header는 쇼카드 상단부에 표시되는 짧은 문구입니다 (예: '마트약국 추천', '약사 PICK').\n\n"
                             f"제품명: {sc_product}\n카테고리: {category or '미분류'}\n뱃지: {sc_badge}\n"
-                            f"원본 워딩:\n1줄: {sc_line1}\n2줄: {sc_line2 or '(없음)'}\n3줄: {sc_line3}\n\n"
+                            f"원본 워딩:\n상단부: {sc_header_text or '(없음)'}\n1줄: {sc_line1}\n2줄: {sc_line2 or '(없음)'}\n3줄: {sc_line3}\n\n"
                             f"기존 쇼카드 예시:\n- \"같은 성분, 더 저렴하게\" + \"노바손\"\n"
                             f"- \"속 쓰림엔\" + \"타이센\"\n- \"잇몸 튼튼\" + \"치렉스정\"\n\n"
                             f"JSON으로만 응답:\n"
-                            f'{{"variantA":{{"line1":"임팩트카피","line2":"부가설명","line3":"{sc_product}"}},'
-                            f'"variantB":{{"line1":"설득력카피","line2":"효능강조","line3":"{sc_product}"}}}}'
+                            f'{{"variantA":{{"header":"상단문구","line1":"임팩트카피","line2":"부가설명","line3":"{sc_product}"}},'
+                            f'"variantB":{{"header":"상단문구","line1":"설득력카피","line2":"효능강조","line3":"{sc_product}"}}}}'
                         )
                         resp = client.messages.create(
                             model="claude-haiku-4-5-20251001",
@@ -3793,14 +3794,14 @@ elif menu == "🏷️ 쇼카드 제작":
                         st.warning("anthropic 패키지 미설치. `pip install anthropic` 후 ANTHROPIC_API_KEY 환경변수 설정 필요")
                         # 폴백
                         st.session_state["sc_ai_result"] = {
-                            "variantA": {"line1": sc_line1[:8] + "!" if sc_line1 else "추천 제품", "line2": "가성비 최고", "line3": sc_product},
-                            "variantB": {"line1": {"동일성분": "같은 성분, 더 저렴하게", "유사성분": "비슷한 효과, 합리적 가격", "업그레이드": "한 단계 업그레이드"}.get(sc_badge, "약사 추천"), "line2": category or "", "line3": sc_product},
+                            "variantA": {"header": "마트약국 추천", "line1": sc_line1[:8] + "!" if sc_line1 else "추천 제품", "line2": "가성비 최고", "line3": sc_product},
+                            "variantB": {"header": "약사 PICK", "line1": {"동일성분": "같은 성분, 더 저렴하게", "유사성분": "비슷한 효과, 합리적 가격", "업그레이드": "한 단계 업그레이드"}.get(sc_badge, "약사 추천"), "line2": category or "", "line3": sc_product},
                         }
                     except Exception as e:
                         st.error(f"AI 생성 실패: {e}")
                         st.session_state["sc_ai_result"] = {
-                            "variantA": {"line1": sc_line1[:8] + "!" if sc_line1 else "추천 제품", "line2": "가성비 최고", "line3": sc_product},
-                            "variantB": {"line1": "약사 추천", "line2": category or "", "line3": sc_product},
+                            "variantA": {"header": "마트약국 추천", "line1": sc_line1[:8] + "!" if sc_line1 else "추천 제품", "line2": "가성비 최고", "line3": sc_product},
+                            "variantB": {"header": "약사 PICK", "line1": "약사 추천", "line2": category or "", "line3": sc_product},
                         }
 
             if "sc_ai_result" in st.session_state:
@@ -3813,18 +3814,21 @@ elif menu == "🏷️ 쇼카드 제작":
                 )
                 if wording_choice == "AI 제안 A (임팩트)":
                     va = ai["variantA"]
+                    st.caption(f'상단: {va.get("header", "")}')
                     st.caption(f'1줄: {va["line1"]}')
                     st.caption(f'2줄: {va["line2"]}')
                     st.caption(f'3줄: {va["line3"]}')
                 elif wording_choice == "AI 제안 B (설득력)":
                     vb = ai["variantB"]
+                    st.caption(f'상단: {vb.get("header", "")}')
                     st.caption(f'1줄: {vb["line1"]}')
                     st.caption(f'2줄: {vb["line2"]}')
                     st.caption(f'3줄: {vb["line3"]}')
                 else:
-                    st.caption(f"1줄: {sc_line1} / 2줄: {sc_line2} / 3줄: {sc_line3}")
+                    st.caption(f"상단: {sc_header_text} / 1줄: {sc_line1} / 2줄: {sc_line2} / 3줄: {sc_line3}")
 
         # ── 최종 워딩 결정 ──
+        final_header = sc_header_text
         final_l1, final_l2, final_l3 = sc_line1, sc_line2, sc_line3
         wording_src = "original"
         if "sc_ai_result" in st.session_state and "sc_wording_choice" in st.session_state:
@@ -3832,10 +3836,12 @@ elif menu == "🏷️ 쇼카드 제작":
             choice = st.session_state["sc_wording_choice"]
             if choice == "AI 제안 A (임팩트)":
                 va = ai["variantA"]
+                final_header = va.get("header", sc_header_text)
                 final_l1, final_l2, final_l3 = va["line1"], va["line2"], va["line3"]
                 wording_src = "ai_a"
             elif choice == "AI 제안 B (설득력)":
                 vb = ai["variantB"]
+                final_header = vb.get("header", sc_header_text)
                 final_l1, final_l2, final_l3 = vb["line1"], vb["line2"], vb["line3"]
                 wording_src = "ai_b"
 
@@ -3849,8 +3855,8 @@ elif menu == "🏷️ 쇼카드 제작":
         scale = 3
         w_px, h_px = w_mm * scale, h_mm * scale
 
-        svg_a = _gen_design_a(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3, size_spec, common_spec, header_text=sc_header_text)
-        svg_b = _gen_design_b(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3, size_spec, common_spec, top_color=sc_top_color, bot_color=sc_bot_color, header_text=sc_header_text)
+        svg_a = _gen_design_a(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3, size_spec, common_spec, header_text=final_header)
+        svg_b = _gen_design_b(w_px, h_px, sc_color, sc_badge, final_l1, final_l2, final_l3, size_spec, common_spec, top_color=sc_top_color, bot_color=sc_bot_color, header_text=final_header)
 
         design_col1, design_col2 = st.columns(2)
         with design_col1:
