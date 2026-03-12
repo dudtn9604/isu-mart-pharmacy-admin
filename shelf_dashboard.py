@@ -2666,7 +2666,7 @@ elif menu == "🛒 교차판매 분석":
     cs_col1, cs_col2 = st.sidebar.columns(2)
     with cs_col1:
         cs_date_from = st.date_input(
-            "시작일", value=date.today() - timedelta(days=90), key="cs_date_from"
+            "시작일", value=date.today() - timedelta(days=60), key="cs_date_from"
         )
     with cs_col2:
         cs_date_to = st.date_input(
@@ -2777,16 +2777,24 @@ elif menu == "🛒 교차판매 분석":
         with tab_category:
             # 지표 선택
             metric_choice = st.radio(
-                "지표 선택", ["Confidence", "Lift"],
+                "지표 선택", ["동시구매 건수", "Confidence", "Lift"],
                 horizontal=True, key="cs_metric",
             )
-            metric_key = "lift" if metric_choice == "Lift" else "confidence"
+            metric_key = "lift" if metric_choice == "Lift" else ("count" if metric_choice == "동시구매 건수" else "confidence")
             heatmap_matrix = get_category_heatmap_data(items_df, metric=metric_key)
 
             if heatmap_matrix.empty:
                 st.info("카테고리 교차분석 데이터가 없습니다.")
             else:
-                if metric_key == "confidence":
+                if metric_key == "count":
+                    st.subheader("카테고리 × 카테고리 동시구매 건수")
+                    st.info(
+                        "**동시구매 건수란?** "
+                        "두 카테고리 상품이 같은 주문에서 함께 구매된 횟수입니다.\n\n"
+                        "**읽는 법**: 숫자가 클수록 (진한 색) 자주 함께 구매되는 카테고리 쌍입니다. "
+                        "건수가 적은 칸은 클릭해도 상세 목록이 없을 수 있습니다."
+                    )
+                elif metric_key == "confidence":
                     st.subheader("카테고리 × 카테고리 Confidence Heatmap")
                     st.info(
                         "**Confidence란?** "
@@ -2810,7 +2818,12 @@ elif menu == "🛒 교차판매 분석":
                 n_cats = len(cats_list)
 
                 # 지표별 색상/기준값 설정
-                if metric_key == "lift":
+                if metric_key == "count":
+                    colorscale = "Blues"
+                    zmid = None
+                    fmt = "d"
+                    caption = "숫자 = 동시구매 건수 | 건수가 클수록 자주 함께 구매되는 카테고리 쌍"
+                elif metric_key == "lift":
                     colorscale = "RdYlGn"
                     zmid = 1.0
                     fmt = ".2f"
@@ -2822,7 +2835,10 @@ elif menu == "🛒 교차판매 분석":
                     caption = "값이 높을수록 (진한 빨강) 행 카테고리 구매 시 열 카테고리를 함께 구매하는 비율이 높음"
 
                 # 텍스트 포맷
-                if metric_key == "confidence":
+                if metric_key == "count":
+                    text_vals = heatmap_matrix.values.astype(int)
+                    text_template = "%{text}건"
+                elif metric_key == "confidence":
                     text_vals = (heatmap_matrix.values * 100).round(1)
                     text_template = "%{text}%"
                 else:
@@ -2887,15 +2903,22 @@ elif menu == "🛒 교차판매 분석":
 
                 if sel_cat_a and sel_cat_b:
                     cell_val = heatmap_matrix.loc[sel_cat_a, sel_cat_b] if sel_cat_a in heatmap_matrix.index and sel_cat_b in heatmap_matrix.columns else None
-                    if metric_key == "lift":
+                    if metric_key == "count":
+                        lift_color = "🟢" if cell_val and cell_val >= 10 else ("🟡" if cell_val and cell_val >= 3 else "🔴")
+                    elif metric_key == "lift":
                         lift_color = "🟢" if cell_val and cell_val > 1.1 else ("🔴" if cell_val and cell_val < 0.9 else "⚪")
                     else:
                         lift_color = "🟢" if cell_val and cell_val > 0.3 else ("🔴" if cell_val and cell_val < 0.1 else "⚪")
 
                     st.markdown("---")
-                    st.subheader(f"{sel_cat_a} → {sel_cat_b}" if metric_key == "confidence" else f"{sel_cat_a} × {sel_cat_b}")
+                    if metric_key == "confidence":
+                        st.subheader(f"{sel_cat_a} → {sel_cat_b}")
+                    else:
+                        st.subheader(f"{sel_cat_a} × {sel_cat_b}")
                     if cell_val is not None:
-                        if metric_key == "confidence":
+                        if metric_key == "count":
+                            st.markdown(f"동시구매 건수 = **{int(cell_val)}건** {lift_color}")
+                        elif metric_key == "confidence":
                             st.markdown(f"Confidence = **{cell_val*100:.1f}%** {lift_color}")
                         else:
                             st.markdown(f"Lift = **{cell_val:.2f}** {lift_color}")

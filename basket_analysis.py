@@ -308,7 +308,7 @@ def get_category_heatmap_data(
     카테고리 × 카테고리 매트릭스 반환 (heatmap용)
 
     Args:
-        metric: "lift" 또는 "confidence"
+        metric: "lift", "confidence", 또는 "count"
     """
     cooc = compute_cooccurrence(items_df, level="category")
 
@@ -326,6 +326,11 @@ def get_category_heatmap_data(
         # 대각선 = 1.0 (자기 자신)
         for c in categories:
             matrix.loc[c, c] = 1.0
+    elif metric == "count":
+        matrix = pd.DataFrame(0, index=categories, columns=categories)
+        for _, r in cooc.iterrows():
+            matrix.loc[r["item_a"], r["item_b"]] = r["count"]
+            matrix.loc[r["item_b"], r["item_a"]] = r["count"]
     else:
         matrix = pd.DataFrame(1.0, index=categories, columns=categories)
         for _, r in cooc.iterrows():
