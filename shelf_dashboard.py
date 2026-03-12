@@ -3631,14 +3631,66 @@ elif menu == "🏷️ 쇼카드 제작":
                 f'{"".join(lines)}'
                 f'</svg>')
 
+    def _register_korean_font():
+        """한글 폰트를 reportlab에 등록하고 (Bold, Regular) 폰트명 튜플 반환"""
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        import os, glob
+        # 폰트 검색 경로 (로컬 macOS + Streamlit Cloud Linux)
+        search_paths = [
+            # Noto Sans CJK (packages.txt: fonts-noto-cjk)
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJKkr-Bold.otf",
+            "/usr/share/fonts/opentype/noto/NotoSansCJKkr-Regular.otf",
+            # macOS
+            os.path.expanduser("~/Library/Fonts/NotoSansKR-Black.ttf"),
+            os.path.expanduser("~/Library/Fonts/NotoSansKR-VariableFont_wght.ttf"),
+            "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+        ]
+        # glob으로 추가 검색
+        for pattern in ["/usr/share/fonts/**/NotoSansCJK*", "/usr/share/fonts/**/NotoSansKR*"]:
+            search_paths.extend(glob.glob(pattern, recursive=True))
+        bold_name, regular_name = "Helvetica-Bold", "Helvetica"
+        registered = False
+        for fpath in search_paths:
+            if not os.path.exists(fpath):
+                continue
+            try:
+                ext = os.path.splitext(fpath)[1].lower()
+                if ext in ('.ttc', '.otc'):
+                    from reportlab.pdfbase.ttfonts import TTFont
+                    # TTC: subfont index 0
+                    pdfmetrics.registerFont(TTFont("KoreanBold", fpath, subfontIndex=0))
+                    bold_name = regular_name = "KoreanBold"
+                    registered = True
+                    break
+                else:
+                    pdfmetrics.registerFont(TTFont("KoreanBold", fpath))
+                    bold_name = regular_name = "KoreanBold"
+                    registered = True
+                    break
+            except Exception:
+                continue
+        if not registered:
+            # CIDFont 시도 (reportlab 내장 한글)
+            try:
+                from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+                pdfmetrics.registerFont(UnicodeCIDFont('HYGothic-Medium'))
+                bold_name = regular_name = "HYGothic-Medium"
+            except Exception:
+                pass  # Helvetica 폴백
+        return bold_name, regular_name
+
     def _svg_to_pdf_bytes(svg_str: str, w_mm: float, h_mm: float) -> bytes:
-        """SVG → PDF 변환 (순수 reportlab — C 라이브러리 불필요)"""
+        """SVG → PDF 변환 (순수 reportlab — 한글 폰트 지원)"""
         from io import BytesIO
         try:
             from reportlab.lib.units import mm as rl_mm
             from reportlab.pdfgen import canvas as rl_canvas
             from reportlab.lib.colors import HexColor, white, Color
             import re
+            bold_font, regular_font = _register_korean_font()
             buf = BytesIO()
             pw, ph = (w_mm + 4) * rl_mm, (h_mm + 4) * rl_mm
             c = rl_canvas.Canvas(buf, pagesize=(pw, ph))
@@ -3674,7 +3726,6 @@ elif menu == "🏷️ 쇼카드 제작":
                     c.setFillColor(HexColor(rfill))
                 except Exception:
                     try:
-                        # rgba 처리
                         rgba = re.findall(r'[\d.]+', rfill)
                         if len(rgba) >= 4:
                             c.setFillColor(Color(int(rgba[0])/255, int(rgba[1])/255, int(rgba[2])/255, float(rgba[3])))
@@ -3682,7 +3733,7 @@ elif menu == "🏷️ 쇼카드 제작":
                         c.setFillColor(HexColor("#888888"))
                 fx, fy, fw, fh = float(rx)*scale, float(ry)*scale, float(rw)*scale, float(rh)*scale
                 c.roundRect(ox + fx, oy + ph - 4*rl_mm - fy - fh, fw, fh, float(rrx)*scale, fill=1, stroke=0)
-            # 3) text
+            # 3) text (한글 폰트 사용)
             for m in re.finditer(r'<text x="([^"]*)" y="([^"]*)" text-anchor="([^"]*)" fill="([^"]*)" font-size="([^"]*)" font-weight="([^"]*)" font-family="([^"]*)"[^>]*>([^<]*)</text>', svg_str):
                 tx, ty, anchor, tfill, tfs, tw, tf, txt = [m.group(i) for i in range(1, 9)]
                 txt = txt.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"')
@@ -3694,7 +3745,8 @@ elif menu == "🏷️ 쇼카드 제작":
                     c.setFillColor(white)
                 fs_pt = float(tfs) * scale / rl_mm * 72  # px → pt
                 fs_pt = max(4, min(fs_pt, 48))
-                c.setFont("Helvetica-Bold" if int(tw) >= 700 else "Helvetica", fs_pt)
+                font_name = bold_font if int(tw) >= 700 else regular_font
+                c.setFont(font_name, fs_pt)
                 pdf_x = ox + float(tx) * scale
                 pdf_y = oy + ph - 4 * rl_mm - float(ty) * scale
                 if anchor == "middle":
