@@ -3010,8 +3010,12 @@ elif menu == "🛒 교차판매 분석":
 
         # ━━━━ 탭 2: 세부 카테고리 교차분석 ━━━━
         with tab_subcategory:
-            # erp_subcategory가 비어있는 행 제외
-            sub_items = items_df[items_df["erp_subcategory"].astype(str).str.strip() != ""].copy()
+            # erp_subcategory 컬럼 존재 확인 + 비어있는 행 제외
+            if "erp_subcategory" not in items_df.columns:
+                st.info("세부 카테고리 데이터가 없습니다. 페이지를 새로고침해 주세요.")
+                sub_items = pd.DataFrame()
+            else:
+                sub_items = items_df[items_df["erp_subcategory"].astype(str).str.strip() != ""].copy()
 
             if sub_items.empty:
                 st.info("세부 카테고리 데이터가 없습니다.")
