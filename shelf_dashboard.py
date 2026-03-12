@@ -3092,75 +3092,154 @@ elif menu == "🏷️ 쇼카드 제작":
         return min_fs
 
     def _badge_svg(badge_type: str, x: float, y: float, w_px: float) -> str:
+        """실제 쇼카드 디자인에 맞는 필(pill) 형태 배지 생성"""
         if badge_type == "none":
             return ""
         badges = {
-            "동일성분": {"text": "동일성분", "text2": "저렴해요"},
-            "유사성분": {"text": "유사성분", "text2": "저렴해요"},
+            "동일성분": {"text": "동일성분", "text2": "↓ 저렴해요"},
+            "유사성분": {"text": "유사성분", "text2": "↓ 저렴해요"},
             "업그레이드": {"text": "업그레이드", "text2": None},
         }
         b = badges.get(badge_type)
         if not b:
             return ""
-        bw = min(w_px * 0.4, 60)
-        svg = (f'<rect x="{x}" y="{y}" width="{bw}" height="16" rx="8" fill="rgba(0,0,0,0.25)"/>'
-               f'<text x="{x + bw/2}" y="{y + 11.5}" text-anchor="middle" fill="white" '
-               f'font-size="8" font-weight="700">{_escape_xml(b["text"])}</text>')
+        fs = max(8, min(10, w_px * 0.05))
+        char_w = fs * 0.55
+        # 첫 번째 배지 (어두운 반투명)
+        text1_w = len(b["text"]) * char_w
+        bw = text1_w + fs * 1.6
+        bh = fs * 2
+        br = bh / 2
+        svg = (f'<rect x="{x}" y="{y}" width="{bw}" height="{bh}" rx="{br}" fill="rgba(0,0,0,0.35)"/>'
+               f'<text x="{x + bw/2}" y="{y + bh*0.72}" text-anchor="middle" fill="white" '
+               f'font-size="{fs}" font-weight="700" font-family="sans-serif">{_escape_xml(b["text"])}</text>')
+        # 두 번째 배지 (밝은 반투명)
         if b["text2"]:
             x2 = x + bw + 4
-            bw2 = min(w_px * 0.35, 52)
-            svg += (f'<rect x="{x2}" y="{y}" width="{bw2}" height="16" rx="8" fill="rgba(255,255,255,0.3)"/>'
-                    f'<text x="{x2 + bw2/2}" y="{y + 11.5}" text-anchor="middle" fill="white" '
-                    f'font-size="8" font-weight="700">{_escape_xml(b["text2"])}</text>')
+            text2_w = len(b["text2"]) * char_w
+            bw2 = text2_w + fs * 1.6
+            svg += (f'<rect x="{x2}" y="{y}" width="{bw2}" height="{bh}" rx="{br}" fill="rgba(255,255,255,0.25)"/>'
+                    f'<text x="{x2 + bw2/2}" y="{y + bh*0.72}" text-anchor="middle" fill="white" '
+                    f'font-size="{fs}" font-weight="700" font-family="sans-serif">{_escape_xml(b["text2"])}</text>')
         return svg
 
+    def _badge_svg_upgrade(w_px: float, y: float) -> str:
+        """업그레이드 배지 — 우측 상단 화살표 스타일"""
+        fs = max(8, min(10, w_px * 0.05))
+        bh = fs * 2
+        br = bh / 2
+        text = "업그레이드"
+        char_w = fs * 0.55
+        bw = len(text) * char_w + fs * 1.6
+        x = w_px - bw - 8
+        return (f'<rect x="{x}" y="{y}" width="{bw}" height="{bh}" rx="{br}" fill="rgba(0,0,0,0.35)"/>'
+                f'<text x="{x + bw/2}" y="{y + bh*0.72}" text-anchor="middle" fill="white" '
+                f'font-size="{fs}" font-weight="700" font-family="sans-serif">↑ {_escape_xml(text)}</text>')
+
     def _gen_design_a(w_px, h_px, bg, badge, l1, l2, l3):
-        r, pad = 8, 8
+        """디자인 A: 실제 쇼카드 — 단색 배경, 상단 배지, 중앙 설명, 하단 헤드라인"""
+        r, pad = 12, 10
+        badge_h = h_px * 0.16
+        # 폰트 크기 계산
         fs3 = _auto_fit(l3, w_px - pad*2, 28, 12)
         fs1 = _auto_fit(l1 or "", w_px - pad*2, 12, 8)
+        fs2 = max(fs1 - 1, 7)
+        # 배지
+        if badge == "업그레이드":
+            badge_el = _badge_svg_upgrade(w_px, pad)
+        else:
+            badge_el = _badge_svg(badge, pad, pad, w_px)
+        # 설명 텍스트
         lines = []
-        if l1: lines.append(f'<text x="{w_px/2}" y="{h_px*0.42}" text-anchor="middle" fill="white" font-size="{fs1}" font-family="sans-serif" opacity="0.9">{_escape_xml(l1)}</text>')
-        if l2: lines.append(f'<text x="{w_px/2}" y="{h_px*0.56}" text-anchor="middle" fill="white" font-size="{max(fs1-1,8)}" font-family="sans-serif" opacity="0.8">{_escape_xml(l2)}</text>')
+        desc_y_start = h_px * 0.38
+        if l1:
+            lines.append(f'<text x="{w_px/2}" y="{desc_y_start}" text-anchor="middle" fill="white" '
+                         f'font-size="{fs1}" font-family="sans-serif" opacity="0.92">{_escape_xml(l1)}</text>')
+        if l2:
+            lines.append(f'<text x="{w_px/2}" y="{desc_y_start + fs1 * 1.5}" text-anchor="middle" fill="white" '
+                         f'font-size="{fs2}" font-family="sans-serif" opacity="0.85">{_escape_xml(l2)}</text>')
+        # 메인 헤드라인
+        lines.append(f'<text x="{w_px/2}" y="{h_px*0.80}" text-anchor="middle" fill="white" '
+                     f'font-size="{fs3}" font-weight="900" font-family="sans-serif">{_escape_xml(l3)}</text>')
         return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w_px} {h_px}" width="{w_px}" height="{h_px}">'
                 f'<rect width="{w_px}" height="{h_px}" rx="{r}" fill="{bg}"/>'
-                f'{_badge_svg(badge, pad, pad, w_px)}'
+                f'{badge_el}'
                 f'{"".join(lines)}'
-                f'<text x="{w_px/2}" y="{h_px*0.82}" text-anchor="middle" fill="white" font-size="{fs3}" font-weight="800" font-family="sans-serif">{_escape_xml(l3)}</text>'
                 f'</svg>')
 
     def _gen_design_b(w_px, h_px, bg, badge, l1, l2, l3):
-        r, pad = 8, 8
-        overlay_h = h_px * 0.38
+        """디자인 B: 상단 컬러 밴드 + 하단 화이트 — 상단에 배지/설명, 하단에 헤드라인"""
+        r, pad = 12, 10
+        top_h = h_px * 0.48
+        # 폰트 크기
         fs3 = _auto_fit(l3, w_px - pad*2, 26, 12)
         fs1 = _auto_fit(l1 or "", w_px - pad*2, 11, 7)
+        fs2 = max(fs1 - 1, 7)
+        # 배지
+        if badge == "업그레이드":
+            badge_el = _badge_svg_upgrade(w_px, pad)
+        else:
+            badge_el = _badge_svg(badge, pad, pad, w_px)
+        # 상단 설명 (컬러 영역 안)
         lines = []
-        if l1: lines.append(f'<text x="{w_px/2}" y="{h_px*0.35}" text-anchor="middle" fill="white" font-size="{fs1}" font-family="sans-serif" opacity="0.9">{_escape_xml(l1)}</text>')
-        if l2: lines.append(f'<text x="{w_px/2}" y="{h_px*0.50}" text-anchor="middle" fill="white" font-size="{max(fs1-1,7)}" font-family="sans-serif" opacity="0.8">{_escape_xml(l2)}</text>')
+        if l1:
+            lines.append(f'<text x="{w_px/2}" y="{top_h * 0.65}" text-anchor="middle" fill="white" '
+                         f'font-size="{fs1}" font-family="sans-serif" opacity="0.92">{_escape_xml(l1)}</text>')
+        if l2:
+            lines.append(f'<text x="{w_px/2}" y="{top_h * 0.88}" text-anchor="middle" fill="white" '
+                         f'font-size="{fs2}" font-family="sans-serif" opacity="0.85">{_escape_xml(l2)}</text>')
+        # 하단 헤드라인 (화이트 영역)
+        lines.append(f'<text x="{w_px/2}" y="{top_h + (h_px - top_h) * 0.65}" text-anchor="middle" fill="{bg}" '
+                     f'font-size="{fs3}" font-weight="900" font-family="sans-serif">{_escape_xml(l3)}</text>')
         return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w_px} {h_px}" width="{w_px}" height="{h_px}">'
-                f'<rect width="{w_px}" height="{h_px}" rx="{r}" fill="{bg}"/>'
-                f'<rect y="{h_px - overlay_h}" width="{w_px}" height="{overlay_h}" fill="rgba(0,0,0,0.18)"/>'
-                f'{_badge_svg(badge, pad, pad, w_px)}'
+                f'<rect width="{w_px}" height="{h_px}" rx="{r}" fill="#FFFFFF"/>'
+                f'<rect width="{w_px}" height="{top_h}" rx="{r}" fill="{bg}"/>'
+                f'<rect y="{top_h - r}" width="{w_px}" height="{r}" fill="{bg}"/>'
+                f'{badge_el}'
                 f'{"".join(lines)}'
-                f'<text x="{w_px/2}" y="{h_px*0.84}" text-anchor="middle" fill="white" font-size="{fs3}" font-weight="800" font-family="sans-serif">{_escape_xml(l3)}</text>'
                 f'</svg>')
 
     def _gen_design_c(w_px, h_px, bg, badge, l1, l2, l3):
-        r = 8
-        bar_w = w_px * 0.12
-        pad = bar_w + 8
-        light_bg = bg + "33"
-        fs3 = _auto_fit(l3, w_px - pad - 8, 24, 11)
-        fs1 = _auto_fit(l1 or "", w_px - pad - 8, 11, 7)
-        lines = []
+        """디자인 C: 하단 컬러 밴드 + 상단 화이트 — 설명이 위, 헤드라인이 컬러 밴드 안"""
+        r, pad = 12, 10
+        bot_h = h_px * 0.52
+        top_h = h_px - bot_h
+        # 폰트 크기
+        fs3 = _auto_fit(l3, w_px - pad*2, 26, 12)
+        fs1 = _auto_fit(l1 or "", w_px - pad*2, 11, 7)
+        fs2 = max(fs1 - 1, 7)
+        # 배지 (흰색 영역에 컬러 배지)
+        badge_el = ""
         if badge != "none":
-            lines.append(f'<text x="{pad}" y="18" fill="{bg}" font-size="8" font-weight="700" font-family="sans-serif">{_escape_xml(badge)}</text>')
-        if l1: lines.append(f'<text x="{pad}" y="{h_px*0.40}" fill="{bg}" font-size="{fs1}" font-family="sans-serif">{_escape_xml(l1)}</text>')
-        if l2: lines.append(f'<text x="{pad}" y="{h_px*0.55}" fill="{bg}" font-size="{max(fs1-1,7)}" font-family="sans-serif" opacity="0.7">{_escape_xml(l2)}</text>')
+            fs_b = max(8, min(10, w_px * 0.05))
+            char_w = fs_b * 0.55
+            if badge == "업그레이드":
+                btxt = "↑ 업그레이드"
+            else:
+                btxt = badge
+            bw = len(btxt) * char_w + fs_b * 1.6
+            bh = fs_b * 2
+            br = bh / 2
+            badge_el = (f'<rect x="{pad}" y="{pad}" width="{bw}" height="{bh}" rx="{br}" fill="{bg}"/>'
+                        f'<text x="{pad + bw/2}" y="{pad + bh*0.72}" text-anchor="middle" fill="white" '
+                        f'font-size="{fs_b}" font-weight="700" font-family="sans-serif">{_escape_xml(btxt)}</text>')
+        # 상단 설명 (흰색 영역)
+        lines = []
+        if l1:
+            lines.append(f'<text x="{w_px/2}" y="{top_h * 0.55}" text-anchor="middle" fill="#333" '
+                         f'font-size="{fs1}" font-family="sans-serif">{_escape_xml(l1)}</text>')
+        if l2:
+            lines.append(f'<text x="{w_px/2}" y="{top_h * 0.80}" text-anchor="middle" fill="#666" '
+                         f'font-size="{fs2}" font-family="sans-serif">{_escape_xml(l2)}</text>')
+        # 하단 헤드라인 (컬러 영역)
+        lines.append(f'<text x="{w_px/2}" y="{top_h + bot_h * 0.6}" text-anchor="middle" fill="white" '
+                     f'font-size="{fs3}" font-weight="900" font-family="sans-serif">{_escape_xml(l3)}</text>')
         return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w_px} {h_px}" width="{w_px}" height="{h_px}">'
-                f'<rect width="{w_px}" height="{h_px}" rx="{r}" fill="{light_bg}"/>'
-                f'<rect width="{bar_w}" height="{h_px}" rx="{r} 0 0 {r}" fill="{bg}"/>'
+                f'<rect width="{w_px}" height="{h_px}" rx="{r}" fill="{bg}"/>'
+                f'<rect width="{w_px}" height="{top_h}" rx="{r}" fill="#FFFFFF"/>'
+                f'<rect y="{top_h}" width="{w_px}" height="{r}" fill="{bg}"/>'
+                f'{badge_el}'
                 f'{"".join(lines)}'
-                f'<text x="{pad}" y="{h_px*0.82}" fill="{bg}" font-size="{fs3}" font-weight="800" font-family="sans-serif">{_escape_xml(l3)}</text>'
                 f'</svg>')
 
     def _svg_to_pdf_bytes(svg_str: str, w_mm: float, h_mm: float) -> bytes:
@@ -3375,17 +3454,17 @@ elif menu == "🏷️ 쇼카드 제작":
 
         design_col1, design_col2, design_col3 = st.columns(3)
         with design_col1:
-            st.markdown("**A. 클래식**")
+            st.markdown("**A. 단색 배경**")
             st.markdown(svg_a, unsafe_allow_html=True)
         with design_col2:
-            st.markdown("**B. 모던**")
+            st.markdown("**B. 상단 컬러 + 하단 화이트**")
             st.markdown(svg_b, unsafe_allow_html=True)
         with design_col3:
-            st.markdown("**C. 미니멀**")
+            st.markdown("**C. 상단 화이트 + 하단 컬러**")
             st.markdown(svg_c, unsafe_allow_html=True)
 
-        sc_design = st.radio("디자인 선택", ["A. 클래식", "B. 모던", "C. 미니멀"], horizontal=True, key="sc_design_choice")
-        design_idx = {"A. 클래식": 0, "B. 모던": 1, "C. 미니멀": 2}[sc_design]
+        sc_design = st.radio("디자인 선택", ["A. 단색 배경", "B. 상단 컬러", "C. 하단 컬러"], horizontal=True, key="sc_design_choice")
+        design_idx = {"A. 단색 배경": 0, "B. 상단 컬러": 1, "C. 하단 컬러": 2}[sc_design]
         selected_svg = [svg_a, svg_b, svg_c][design_idx]
 
         # ── 다운로드 ──
