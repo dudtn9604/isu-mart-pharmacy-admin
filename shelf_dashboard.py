@@ -66,6 +66,7 @@ init_db()
 # 에디터 저장 API (포트 8503)
 # ──────────────────────────────────────
 LAYOUT_FILE = Path(__file__).parent / "shelf_layout.json"
+FOREON_LAYOUT_FILE = Path(__file__).parent / "foreon_layout.json"
 
 
 def _start_layout_api():
@@ -90,6 +91,21 @@ def _start_layout_api():
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
                 self.wfile.write(_json.dumps({"ok": True, "count": len(fx_list)}).encode())
+            elif self.path == "/save-foreon-layout":
+                length = int(self.headers["Content-Length"])
+                data = _json.loads(self.rfile.read(length))
+                # 포레온은 DB 저장 없이 로컬 파일만 저장 (시뮬레이션 전용)
+                try:
+                    with open(str(FOREON_LAYOUT_FILE), "w", encoding="utf-8") as f:
+                        _json.dump(data, f, ensure_ascii=False, indent=2)
+                except Exception:
+                    pass
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                fx_count = len(data.get("fixtures", []))
+                self.wfile.write(_json.dumps({"ok": True, "count": fx_count}).encode())
             else:
                 self.send_response(404)
                 self.end_headers()
@@ -3538,400 +3554,749 @@ elif menu == "🏪 포레온 시뮬레이션":
     FOREON_W = 27323
     FOREON_H = 7487
 
-    def _auto_arrange_fixtures(num_a, num_b, num_c):
-        """
-        포레온 매장 매대 자동 배치 — 리테일 정석 레이아웃.
 
-        이수점 패턴 참고: 양면 곤돌라(back-to-back 쌍) 세로 배치,
-        C 엔드캡은 각 곤돌라 열 양 끝에 가로 배치.
+# ======================================================================
+# 포레온 시뮬레이션
+# ======================================================================
+elif menu == "🏪 포레온 시뮬레이션":
 
-        포레온은 가로 27m × 세로 7.5m (가로가 넓은 형태)이므로
-        곤돌라 열을 세로 방향(depth)으로 세우고, 열을 가로 방향으로 나열.
+    import plotly.express as px
 
-        레이아웃:
-        ┌─────────────────────────────────────────────────────────┐
-        │ [조제실]  [약품수납장]                        [냉장고]  │ ← 후면 벽
-        │                                                         │
-        │   C    C    C    C    C    C    C    C    C    C         │ ← 상단 엔드캡
-        │  ║A║  ║A║  ║A║  ║A║  ║B║  ║B║  ║B║  ║B║  ║B║          │
-        │  ║A║  ║A║  ║A║  ║A║  ║B║  ║B║  ║B║  ║B║  ║B║          │ ← 곤돌라 열
-        │  ║A║  ║A║  ║A║  ║A║  ║B║  ║B║  ║B║                    │   (세로 방향)
-        │   C    C    C    C    C    C    C    C    C    C         │ ← 하단 엔드캡
-        │                                                         │
-        │ [POS]  [프로모션]         [대기]         [입구]          │ ← 전면 (입구쪽)
-        └─────────────────────────────────────────────────────────┘
-        """
-        fixtures = []
+    # 포레온 매장 규격 (mm)
+    FOREON_W = 27323
+    FOREON_H = 7487
 
-        # 고정 영역 마진 (mm)
-        margin_front = 1800   # 전면: 입구/POS 영역
-        margin_back = 2600    # 후면: 조제실/약품수납장
-        margin_left = 4200    # 좌측: 조제실 옆 여유
-        margin_right = 1800   # 우측: 냉장고 옆 여유
+    # ── session_state 초기화 (저장된 레이아웃 파일 우선) ──
+    if "foreon_fixtures" not in st.session_state:
+        _saved_foreon = None
+        if FOREON_LAYOUT_FILE.exists():
+            try:
+                with open(str(FOREON_LAYOUT_FILE), "r", encoding="utf-8") as f:
+                    _saved_foreon = _json.load(f)
+            except Exception:
+                pass
 
-        # 가용 영역
-        avail_w = FOREON_W - margin_left - margin_right   # 가로 (곤돌라 열 나열 방향)
-        avail_h = FOREON_H - margin_front - margin_back   # 세로 (곤돌라 깊이 방향)
-
-        # 매대 치수
-        shelf_w = 900    # A매대 선반 폭 (= 곤돌라에서 세로로 세울 때 높이)
-        shelf_d = 360    # 매대 깊이
-        gap = 40         # back-to-back 간격
-
-        # 곤돌라 열: 양면(back-to-back) 쌍 = 2 × shelf_d + gap
-        gondola_pair_w = shelf_d * 2 + gap   # ~760mm
-        aisle_w = 1200   # 통로 폭
-        col_pitch = gondola_pair_w + aisle_w  # ~1960mm
-
-        # 곤돌라 열당 매대 수 (세로 방향으로 쌓기)
-        shelves_per_col = max(1, int(avail_h / shelf_w))  # 세로 가용 / 매대폭
-
-        # 가용 곤돌라 열 수 (가로 방향)
-        max_cols = max(1, int(avail_w / col_pitch))
-
-        # 배치 시작
-        ab_total = num_a + num_b
-        a_placed = 0
-        b_placed = 0
-        c_placed = 0
-
-        # 곤돌라 열 구성: 각 열에 shelves_per_col개의 A/B 매대 (양면 = ×2)
-        col_idx = 0
-        while col_idx < max_cols and (a_placed + b_placed) < ab_total:
-            col_x = margin_left + col_idx * col_pitch
-
-            # 한 열에 좌측/우측 2줄 (양면 곤돌라)
-            for side in range(2):
-                if (a_placed + b_placed) >= ab_total:
-                    break
-                x = col_x + side * (shelf_d + gap)
-
-                for row in range(shelves_per_col):
+        if _saved_foreon and _saved_foreon.get("fixtures"):
+            st.session_state.foreon_fixtures = _saved_foreon["fixtures"]
+            st.session_state.foreon_facilities = _saved_foreon.get("facilities", [])
+        else:
+            # 자동 배치로 초기 매대 생성
+            def _init_foreon_fixtures(num_a=21, num_b=15, num_c=14):
+                fxs = []
+                margin_back = 2600
+                margin_left = 4200
+                shelf_w = 900
+                shelf_d = 360
+                gap = 40
+                gondola_pair_w = shelf_d * 2 + gap
+                aisle_w = 1200
+                col_pitch = gondola_pair_w + aisle_w
+                avail_w = FOREON_W - margin_left - 1800
+                avail_h = FOREON_H - 1800 - margin_back
+                shelves_per_col = max(1, int(avail_h / shelf_w))
+                max_cols = max(1, int(avail_w / col_pitch))
+                a_placed = b_placed = c_placed = 0
+                ab_total = num_a + num_b
+                for ci in range(max_cols):
                     if (a_placed + b_placed) >= ab_total:
                         break
-                    y = margin_back + row * shelf_w
+                    col_x = margin_left + ci * col_pitch
+                    for side in range(2):
+                        if (a_placed + b_placed) >= ab_total:
+                            break
+                        x = col_x + side * (shelf_d + gap)
+                        for row in range(shelves_per_col):
+                            if (a_placed + b_placed) >= ab_total:
+                                break
+                            y = margin_back + row * shelf_w
+                            if a_placed < num_a:
+                                a_placed += 1
+                                fxs.append({"id": f"A-{a_placed}", "type": "A", "no": a_placed,
+                                            "x": x, "y": y, "orient": "V", "zone": "", "label": ""})
+                            elif b_placed < num_b:
+                                b_placed += 1
+                                fxs.append({"id": f"B-{b_placed}", "type": "B", "no": b_placed,
+                                            "x": x, "y": y, "orient": "V", "zone": "", "label": ""})
+                    # C 엔드캡
+                    ecx = col_x + gondola_pair_w // 2 - 636 // 2
+                    if c_placed < num_c:
+                        c_placed += 1
+                        fxs.append({"id": f"C-{c_placed}", "type": "C", "no": c_placed,
+                                    "x": ecx, "y": margin_back - 400, "orient": "H", "zone": "", "label": ""})
+                    if c_placed < num_c:
+                        c_placed += 1
+                        fxs.append({"id": f"C-{c_placed}", "type": "C", "no": c_placed,
+                                    "x": ecx, "y": margin_back + shelves_per_col * shelf_w + 40,
+                                    "orient": "H", "zone": "", "label": ""})
+                return fxs
 
-                    if a_placed < num_a:
-                        a_placed += 1
-                        fixtures.append({
-                            "shelf_type": "A", "fixture_no": a_placed,
-                            "x": x, "y": y,
-                            "w": shelf_d, "h": shelf_w,  # V orientation: 360 × 900
-                            "orientation": "V",
-                        })
-                    elif b_placed < num_b:
-                        b_placed += 1
-                        fixtures.append({
-                            "shelf_type": "B", "fixture_no": b_placed,
-                            "x": x, "y": y,
-                            "w": shelf_d, "h": 930,  # B는 930mm
-                            "orientation": "V",
-                        })
+            st.session_state.foreon_fixtures = _init_foreon_fixtures()
+            st.session_state.foreon_facilities = [
+                {"id": "fac-1", "name": "입구", "x": FOREON_W - 3500, "y": FOREON_H - 500, "w": 2500, "h": 500, "label": ""},
+                {"id": "fac-2", "name": "POS", "x": 400, "y": FOREON_H - 1600, "w": 1800, "h": 1000, "label": ""},
+                {"id": "fac-3", "name": "조제실", "x": 200, "y": 200, "w": 3500, "h": 2200, "label": ""},
+                {"id": "fac-4", "name": "약품 수납장", "x": 3900, "y": 200, "w": 3000, "h": 1200, "label": ""},
+                {"id": "fac-5", "name": "냉장고", "x": FOREON_W - 1500, "y": 200, "w": 1300, "h": 3000, "label": ""},
+                {"id": "fac-6", "name": "창고", "x": FOREON_W - 1500, "y": 3400, "w": 1300, "h": 2000, "label": ""},
+                {"id": "fac-7", "name": "프로모션 존", "x": 8000, "y": FOREON_H - 1400, "w": 3000, "h": 1000, "label": ""},
+                {"id": "fac-8", "name": "대기 공간", "x": 18000, "y": FOREON_H - 1400, "w": 2000, "h": 1000, "label": ""},
+            ]
 
-            # C 엔드캡: 곤돌라 열 상단/하단에 가로 배치
-            endcap_center_x = col_x + gondola_pair_w // 2 - 636 // 2
-
-            # 상단 엔드캡 (조제실 쪽)
-            if c_placed < num_c:
-                c_placed += 1
-                fixtures.append({
-                    "shelf_type": "C", "fixture_no": c_placed,
-                    "x": endcap_center_x, "y": margin_back - 400,
-                    "w": 636, "h": 360,
-                    "orientation": "H",
-                })
-
-            # 하단 엔드캡 (입구 쪽)
-            if c_placed < num_c:
-                c_placed += 1
-                bottom_y = margin_back + shelves_per_col * shelf_w + 40
-                fixtures.append({
-                    "shelf_type": "C", "fixture_no": c_placed,
-                    "x": endcap_center_x, "y": bottom_y,
-                    "w": 636, "h": 360,
-                    "orientation": "H",
-                })
-
-            col_idx += 1
-
-        return fixtures
-
-    def _assign_products_sim(num_a, num_b, num_c):
-        """매출 데이터 기반 포레온 상품 배정 시뮬레이션"""
-        try:
-            dims = get_all_dimensions()
-        except Exception:
-            dims = pd.DataFrame()
-
-        try:
-            from supabase_client import is_supabase_configured, fetch_products, fetch_orders, flatten_order_items
-            if is_supabase_configured():
-                products = fetch_products()
-                orders = fetch_orders()
-                items = flatten_order_items(orders, products) if not orders.empty else pd.DataFrame()
-            else:
-                products = pd.DataFrame()
-                items = pd.DataFrame()
-        except Exception:
-            products = pd.DataFrame()
-            items = pd.DataFrame()
-
-        if not items.empty:
-            sales_rank = (
-                items.groupby("product_name")
-                .agg(total_sales=("total_price", "sum"), total_qty=("quantity", "sum"))
-                .reset_index()
-                .sort_values("total_sales", ascending=False)
-            )
+    # 이수점 배치 데이터를 포레온 시뮬레이션 초기값으로 복사
+    if "foreon_placements" not in st.session_state:
+        _isu_placements = get_current_placements()
+        if not _isu_placements.empty:
+            st.session_state.foreon_placements = _isu_placements.to_dict("records")
         else:
-            sales_rank = pd.DataFrame(columns=["product_name", "total_sales", "total_qty"])
-
-        if not dims.empty and not sales_rank.empty:
-            merged = sales_rank.merge(
-                dims[["product_name", "width", "height", "size_class"]],
-                on="product_name", how="left",
-            )
-        elif not sales_rank.empty:
-            merged = sales_rank.copy()
-            merged["width"] = 8.0
-            merged["height"] = 15.0
-            merged["size_class"] = "medium"
-        else:
-            return pd.DataFrame(), {}
-
-        merged["size_class"] = merged["size_class"].fillna("medium")
-        merged["width"] = merged["width"].fillna(8.0)
-
-        total_shelves_a = num_a * 5
-        total_shelves_b = num_b * 5
-        total_shelves_c = num_c * 5
-        total_shelves = total_shelves_a + total_shelves_b + total_shelves_c
-
-        avg_w = merged["width"].mean()
-        per_shelf_a = max(1, int(90 / (avg_w + 0.3)))
-        per_shelf_b = max(1, int(93 / (avg_w + 0.3)))
-        per_shelf_c = max(1, int(63.6 / (avg_w + 0.3)))
-
-        total_capacity = (total_shelves_a * per_shelf_a +
-                          total_shelves_b * per_shelf_b +
-                          total_shelves_c * per_shelf_c)
-
-        assigned = merged.head(min(len(merged), total_capacity)).copy()
-        assigned["assigned"] = True
-
-        if not products.empty and "name" in products.columns and "erp_category" in products.columns:
-            cat_map = dict(zip(products["name"], products["erp_category"]))
-            assigned["category"] = assigned["product_name"].map(cat_map).fillna("기타")
-        else:
-            assigned["category"] = "기타"
-
-        summary = {
-            "total_shelves": total_shelves,
-            "total_capacity": total_capacity,
-            "assigned_count": len(assigned),
-            "utilization": round(len(assigned) / total_capacity * 100, 1) if total_capacity > 0 else 0,
-            "total_sales_coverage": round(
-                assigned["total_sales"].sum() / sales_rank["total_sales"].sum() * 100, 1
-            ) if sales_rank["total_sales"].sum() > 0 else 0,
-        }
-
-        return assigned, summary
+            st.session_state.foreon_placements = []
 
     # ── 페이지 렌더링 ──
     st.markdown("# 🏪 포레온 마트약국 매대 배치 시뮬레이션")
     st.caption("포레온 2호점 신규 매장의 매대 배치와 상품 배정을 미리 검증합니다")
     st.divider()
 
-    # ── Step 1: 매장 규격 & 매대 수량 설정 ──
-    st.markdown("## Step 1. 매장 규격 & 매대 수량 설정")
+    # ── Step 1: 매장 규격 & 요약 ──
+    st.markdown("## Step 1. 매장 규격 & 매대 현황")
 
-    col1, col2, col3 = st.columns(3)
     foreon_area = FOREON_W * FOREON_H / 1_000_000
-    col1.metric("매장 면적", f"{foreon_area:.1f} m²")
-    col2.metric("가로 (W)", f"{FOREON_W / 1000:.1f} m")
-    col3.metric("세로 (H)", f"{FOREON_H / 1000:.1f} m")
+    _fx_list = st.session_state.foreon_fixtures
+    _na = len([f for f in _fx_list if f["type"] == "A"])
+    _nb = len([f for f in _fx_list if f["type"] == "B"])
+    _nc = len([f for f in _fx_list if f["type"] == "C"])
+    _total_fx = _na + _nb + _nc
+    _total_shelves = _total_fx * 5
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("매장 면적", f"{foreon_area:.1f} m²")
+    c2.metric("규격 (W×H)", f"{FOREON_W/1000:.1f} × {FOREON_H/1000:.1f} m")
+    c3.metric("총 매대", f"{_total_fx}대", help=f"A:{_na} B:{_nb} C:{_nc}")
+    c4.metric("총 선반 (단면)", f"{_total_shelves}개")
+    c5.metric("배정 상품", f"{len(st.session_state.foreon_placements)}건")
 
     st.divider()
 
-    try:
-        demand = predict_shelf_demand()
-        default_a = demand.get("fixtures_needed", {}).get("A", 21)
-        default_b = demand.get("fixtures_needed", {}).get("B", 15)
-        default_c = demand.get("fixtures_needed", {}).get("C", 14)
-    except Exception:
-        default_a, default_b, default_c = 21, 15, 14
+    # ── Step 2: 매장 배치도 에디터 (드래그 가능) ──
+    st.markdown("## Step 2. 매장 배치도")
 
-    st.markdown("### 매대 수량 입력")
-    sc1, sc2, sc3 = st.columns(3)
-    num_a = sc1.number_input("A 기본매대 (900mm)", min_value=0, max_value=60, value=default_a, step=1)
-    num_b = sc2.number_input("B 연결매대 (930mm)", min_value=0, max_value=60, value=default_b, step=1)
-    num_c = sc3.number_input("C 엔드캡매대 (636mm)", min_value=0, max_value=60, value=default_c, step=1)
+    _foreon_fx_json = _json.dumps(st.session_state.foreon_fixtures, ensure_ascii=False)
+    _foreon_fac_json = _json.dumps(st.session_state.foreon_facilities, ensure_ascii=False)
 
-    total_fixtures = num_a + num_b + num_c
-    total_shelves = total_fixtures * 5
-    total_display_m = (num_a * 0.9 + num_b * 0.93 + num_c * 0.636) * 5
-    est_sku = int(total_shelves * (90 / (8.0 + 0.3)))
+    _foreon_editor_html = f"""
+    <div id="editor-root" style="width:100%;height:480px;position:relative;background:#f8f8f8;border:1px solid #ddd;border-radius:8px;overflow:hidden;">
+      <div id="toolbar" style="height:44px;background:#fff;border-bottom:1px solid #ddd;display:flex;align-items:center;padding:0 10px;gap:6px;font-size:13px;">
+        <strong style="font-size:13px;color:#FF8C00;">포레온</strong>
+        <button onclick="addFixture('A')" style="padding:4px 10px;border:1px solid #4A90D9;color:#4A90D9;border-radius:4px;background:#fff;cursor:pointer;">+A</button>
+        <button onclick="addFixture('B')" style="padding:4px 10px;border:1px solid #50C878;color:#50C878;border-radius:4px;background:#fff;cursor:pointer;">+B</button>
+        <button onclick="addFixture('C')" style="padding:4px 10px;border:1px solid #FF8C00;color:#FF8C00;border-radius:4px;background:#fff;cursor:pointer;">+C</button>
+        <span style="width:1px;height:24px;background:#ddd;margin:0 2px;"></span>
+        <select id="addFac" onchange="addFacilityFromSelect(this)" style="padding:3px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+          <option value="">+시설물</option>
+          <option value="조제실">조제실</option><option value="창고">창고</option>
+          <option value="프로모션 존">프로모션 존</option><option value="냉장고">냉장고</option>
+          <option value="약품 수납장">약품 수납장</option><option value="POS">POS</option>
+          <option value="대기 공간">대기 공간</option><option value="기타">기타</option>
+        </select>
+        <span style="width:1px;height:24px;background:#ddd;margin:0 2px;"></span>
+        <button onclick="rotateSelected()" style="padding:4px 10px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;">회전(R)</button>
+        <button onclick="deleteSelected()" style="padding:4px 10px;border:1px solid #e74c3c;color:#e74c3c;border-radius:4px;background:#fff;cursor:pointer;">삭제(Del)</button>
+        <button onclick="undoAction()" style="padding:4px 10px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;">되돌리기</button>
+        <span style="width:1px;height:24px;background:#ddd;margin:0 2px;"></span>
+        <label style="font-size:11px;">스냅:</label>
+        <select id="snapSel" onchange="snapGrid=+this.value" style="padding:2px 4px;border:1px solid #ccc;border-radius:4px;font-size:11px;">
+          <option value="0">없음</option><option value="50">50</option><option value="100" selected>100</option><option value="200">200</option>
+        </select>
+        <span style="flex:1;"></span>
+        <button id="saveBtn" onclick="saveLayout()" style="padding:4px 14px;border:1px solid #FF8C00;background:#FF8C00;color:#fff;border-radius:4px;cursor:pointer;font-weight:bold;">레이아웃 저장</button>
+        <span id="statusText" style="font-size:11px;color:#888;margin-left:8px;"></span>
+      </div>
+      <svg id="svg" style="display:block;"></svg>
+    </div>
+    <style>
+      .fixture {{ cursor: move; }}
+      .fixture:hover rect {{ stroke-width: 2.5; }}
+      .fixture.selected rect {{ stroke-width: 3; filter: drop-shadow(0 0 4px rgba(0,0,0,0.3)); }}
+      .fixture text {{ pointer-events: none; user-select: none; }}
+      .facility {{ cursor: move; }}
+      .facility:hover rect {{ stroke-width: 2.5; }}
+      .facility.selected rect {{ stroke-width: 3; stroke-dasharray: 6,3; filter: drop-shadow(0 0 4px rgba(0,0,0,0.3)); }}
+      .facility text {{ pointer-events: none; user-select: none; }}
+    </style>
+    <script>
+    const STORE_W = {FOREON_W}, STORE_H = {FOREON_H};
+    const TYPES = {{
+      A: {{ name:'기본매대', w:900, d:360, color:'#4A90D9', light:'rgba(74,144,217,0.25)' }},
+      B: {{ name:'연결매대', w:930, d:360, color:'#50C878', light:'rgba(80,200,120,0.25)' }},
+      C: {{ name:'엔드캡매대', w:636, d:360, color:'#FF8C00', light:'rgba(255,140,0,0.25)' }},
+    }};
+    const FACILITY_TYPES = {{
+      '입구':{{w:2500,h:500,c:'#DDD',border:'#999'}},
+      '조제실':{{w:3200,h:2200,c:'#D4E6F1',border:'#5B9BD5'}},
+      '창고':{{w:1200,h:3000,c:'#E8E8E8',border:'#999'}},
+      '프로모션 존':{{w:2200,h:1800,c:'#FCE4EC',border:'#E91E63'}},
+      '냉장고':{{w:1200,h:5000,c:'#B3E5FC',border:'#03A9F4'}},
+      '약품 수납장':{{w:3800,h:1600,c:'#F3E5F5',border:'#9C27B0'}},
+      'POS':{{w:2200,h:700,c:'#E8D5B7',border:'#A0522D'}},
+      '대기 공간':{{w:1600,h:1400,c:'#E8F5E9',border:'#4CAF50'}},
+      '기타':{{w:1000,h:1000,c:'#F5F5F5',border:'#757575'}},
+    }};
 
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("총 매대 수", f"{total_fixtures}대")
-    m2.metric("총 선반 수 (단면)", f"{total_shelves}개")
-    m3.metric("총 진열 길이", f"{total_display_m:.1f} m")
-    m4.metric("예상 수용 SKU", f"~{est_sku}개")
+    let fixtures = {_foreon_fx_json};
+    let facilities = {_foreon_fac_json};
+    let selection = [];
+    let snapGrid = 100, undoStack = [];
+    let scale = 1, panX = 0, panY = 0;
+    let isPanning = false, panStartX = 0, panStartY = 0;
+    let isDragging = false, dragItems = [], dragStartPositions = [], dragOffX = 0, dragOffY = 0;
+    let placingType = null, placingFacility = null;
+    let isMarquee = false, marqueeX0 = 0, marqueeY0 = 0, marqueeX1 = 0, marqueeY1 = 0;
+    let isResizing = false, resizeFac = null, resizeHandle = '', resizeStartX = 0, resizeStartY = 0;
+    let resizeOrigX = 0, resizeOrigY = 0, resizeOrigW = 0, resizeOrigH = 0;
+    const HANDLE_SIZE = 8;
+
+    function isSelected(type, id) {{ return selection.some(s => s.type === type && s.id === id); }}
+
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.getElementById('svg');
+    const root = document.getElementById('editor-root');
+
+    function toSVG(mx, my) {{ return [mx * scale + panX, my * scale + panY]; }}
+    function fromSVG(sx, sy) {{ return [(sx - panX) / scale, (sy - panY) / scale]; }}
+    function snap(v) {{ return snapGrid > 0 ? Math.round(v / snapGrid) * snapGrid : v; }}
+
+    function addRect(parent, x, y, w, h, stroke, sw, fill) {{
+      const r = document.createElementNS(svgNS, 'rect');
+      r.setAttribute('x', x); r.setAttribute('y', y);
+      r.setAttribute('width', w); r.setAttribute('height', h);
+      r.setAttribute('stroke', stroke); r.setAttribute('stroke-width', sw);
+      r.setAttribute('fill', fill || 'none'); r.setAttribute('rx', 2);
+      parent.appendChild(r);
+    }}
+    function addText(parent, x, y, text, size, color) {{
+      const t = document.createElementNS(svgNS, 'text');
+      t.setAttribute('x', x); t.setAttribute('y', y);
+      t.setAttribute('text-anchor', 'middle'); t.setAttribute('dominant-baseline', 'central');
+      t.setAttribute('font-size', size); t.setAttribute('fill', color);
+      t.setAttribute('font-family', '-apple-system, sans-serif');
+      t.textContent = text;
+      parent.appendChild(t);
+    }}
+
+    function render() {{
+      svg.innerHTML = '';
+      const ww = root.clientWidth, wh = root.clientHeight - 44;
+      svg.setAttribute('width', ww); svg.setAttribute('height', wh);
+
+      const bg = document.createElementNS(svgNS, 'rect');
+      bg.setAttribute('width', ww); bg.setAttribute('height', wh);
+      bg.setAttribute('fill', '#f8f8f8');
+      svg.appendChild(bg);
+
+      const [sx, sy] = toSVG(0, 0);
+      const sw = STORE_W * scale, sh = STORE_H * scale;
+      addRect(svg, sx, sy, sw, sh, '#333', 2, 'rgba(255,255,255,0.9)');
+
+      // 그리드
+      if (scale > 0.02) {{
+        const gridSize = scale > 0.04 ? 1000 : 2000;
+        const gridG = document.createElementNS(svgNS, 'g');
+        gridG.setAttribute('opacity', '0.15');
+        for (let gx = 0; gx <= STORE_W; gx += gridSize) {{
+          const [lx] = toSVG(gx, 0);
+          const line = document.createElementNS(svgNS, 'line');
+          line.setAttribute('x1', lx); line.setAttribute('y1', sy);
+          line.setAttribute('x2', lx); line.setAttribute('y2', sy + sh);
+          line.setAttribute('stroke', '#999'); line.setAttribute('stroke-width', 0.5);
+          gridG.appendChild(line);
+        }}
+        for (let gy = 0; gy <= STORE_H; gy += gridSize) {{
+          const [, ly] = toSVG(0, gy);
+          const line = document.createElementNS(svgNS, 'line');
+          line.setAttribute('x1', sx); line.setAttribute('y1', ly);
+          line.setAttribute('x2', sx + sw); line.setAttribute('y2', ly);
+          line.setAttribute('stroke', '#999'); line.setAttribute('stroke-width', 0.5);
+          gridG.appendChild(line);
+        }}
+        svg.appendChild(gridG);
+      }}
+
+      // 시설물
+      facilities.forEach(fac => {{
+        const g = document.createElementNS(svgNS, 'g');
+        const isSel = isSelected('facility', fac.id);
+        g.setAttribute('class', 'facility' + (isSel ? ' selected' : ''));
+        const ft = FACILITY_TYPES[fac.name] || FACILITY_TYPES['기타'];
+        const fw = fac.w * scale, fh = fac.h * scale;
+        const [fx, fy] = toSVG(fac.x, fac.y);
+        addRect(g, fx, fy, fw, fh, isSel ? ft.border : '#aaa', isSel ? 3 : 1, ft.c);
+        addText(g, fx + fw / 2, fy + fh / 2, fac.label || fac.name, Math.max(8, 10 * scale / 0.035), '#555');
+        if (isSel && selection.length === 1) {{
+          const hs = HANDLE_SIZE;
+          const handles = [
+            {{ name:'nw',cx:fx,cy:fy,cursor:'nw-resize' }},{{ name:'ne',cx:fx+fw,cy:fy,cursor:'ne-resize' }},
+            {{ name:'sw',cx:fx,cy:fy+fh,cursor:'sw-resize' }},{{ name:'se',cx:fx+fw,cy:fy+fh,cursor:'se-resize' }},
+            {{ name:'n',cx:fx+fw/2,cy:fy,cursor:'n-resize' }},{{ name:'s',cx:fx+fw/2,cy:fy+fh,cursor:'s-resize' }},
+            {{ name:'w',cx:fx,cy:fy+fh/2,cursor:'w-resize' }},{{ name:'e',cx:fx+fw,cy:fy+fh/2,cursor:'e-resize' }},
+          ];
+          handles.forEach(h => {{
+            const hr = document.createElementNS(svgNS, 'rect');
+            hr.setAttribute('x', h.cx - hs/2); hr.setAttribute('y', h.cy - hs/2);
+            hr.setAttribute('width', hs); hr.setAttribute('height', hs);
+            hr.setAttribute('fill', '#fff'); hr.setAttribute('stroke', ft.border);
+            hr.setAttribute('stroke-width', 1.5); hr.setAttribute('rx', 2);
+            hr.style.cursor = h.cursor;
+            hr.addEventListener('mousedown', ev => {{ ev.stopPropagation(); startResize(ev, fac, h.name); }});
+            g.appendChild(hr);
+          }});
+          addText(g, fx + fw/2, fy + fh + 14, Math.round(fac.w) + ' x ' + Math.round(fac.h) + ' mm', 9, '#999');
+        }}
+        g.addEventListener('mousedown', e => onFacilityMouseDown(e, fac));
+        svg.appendChild(g);
+      }});
+
+      // 매대
+      fixtures.forEach(fx => {{
+        const g = document.createElementNS(svgNS, 'g');
+        const isSel = isSelected('fixture', fx.id);
+        g.setAttribute('class', 'fixture' + (isSel ? ' selected' : ''));
+        const t = TYPES[fx.type];
+        const dx = (fx.orient === 'V' ? t.d : t.w) * scale;
+        const dy = (fx.orient === 'V' ? t.w : t.d) * scale;
+        const [rx, ry] = toSVG(fx.x, fx.y);
+        addRect(g, rx, ry, dx, dy, t.color, isSel ? 3 : 1.5, isSel ? t.color : t.light);
+        const label = fx.label || fx.id;
+        const fontSize = Math.max(6, Math.min(11, Math.min(dx, dy) * 0.4));
+        addText(g, rx + dx/2, ry + dy/2, label, fontSize, isSel ? '#fff' : '#333');
+        g.addEventListener('mousedown', e => onFixtureMouseDown(e, fx));
+        svg.appendChild(g);
+      }});
+
+      if (isMarquee) {{
+        const [sx0, sy0] = toSVG(Math.min(marqueeX0,marqueeX1), Math.min(marqueeY0,marqueeY1));
+        const mw = Math.abs(marqueeX1 - marqueeX0) * scale;
+        const mh = Math.abs(marqueeY1 - marqueeY0) * scale;
+        addRect(svg, sx0, sy0, mw, mh, '#4A90D9', 1.5, 'rgba(74,144,217,0.12)');
+      }}
+      updateStatus();
+    }}
+
+    // ── 이벤트 ──
+    function saveUndo() {{ undoStack.push(JSON.stringify({{fixtures,facilities}})); if(undoStack.length>50) undoStack.shift(); }}
+    function startDragSelected(e) {{
+      const rect = root.getBoundingClientRect();
+      const [mx,my] = fromSVG(e.clientX-rect.left, e.clientY-rect.top-44);
+      dragOffX=mx; dragOffY=my; isDragging=false;
+      dragItems=[]; dragStartPositions=[];
+      selection.forEach(s => {{
+        let item;
+        if(s.type==='fixture') item=fixtures.find(f=>f.id===s.id);
+        else item=facilities.find(f=>f.id===s.id);
+        if(item) {{ dragItems.push(item); dragStartPositions.push({{x:item.x,y:item.y}}); }}
+      }});
+      saveUndo();
+    }}
+
+    function onFixtureMouseDown(e,fx) {{
+      e.stopPropagation();
+      if(e.shiftKey) {{
+        if(isSelected('fixture',fx.id)) selection=selection.filter(s=>!(s.type==='fixture'&&s.id===fx.id));
+        else selection.push({{type:'fixture',id:fx.id}});
+        render(); return;
+      }}
+      if(!isSelected('fixture',fx.id)) selection=[{{type:'fixture',id:fx.id}}];
+      render(); startDragSelected(e);
+    }}
+    function onFacilityMouseDown(e,fac) {{
+      e.stopPropagation();
+      if(e.shiftKey) {{
+        if(isSelected('facility',fac.id)) selection=selection.filter(s=>!(s.type==='facility'&&s.id===fac.id));
+        else selection.push({{type:'facility',id:fac.id}});
+        render(); return;
+      }}
+      if(!isSelected('facility',fac.id)) selection=[{{type:'facility',id:fac.id}}];
+      render(); startDragSelected(e);
+    }}
+
+    function getSelectionBBox() {{
+      let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+      selection.forEach(s => {{
+        let item,w,h;
+        if(s.type==='fixture') {{
+          item=fixtures.find(f=>f.id===s.id); if(!item) return;
+          const t=TYPES[item.type]; w=item.orient==='V'?t.d:t.w; h=item.orient==='V'?t.w:t.d;
+        }} else {{
+          item=facilities.find(f=>f.id===s.id); if(!item) return; w=item.w; h=item.h;
+        }}
+        minX=Math.min(minX,item.x); minY=Math.min(minY,item.y);
+        maxX=Math.max(maxX,item.x+w); maxY=Math.max(maxY,item.y+h);
+      }});
+      return {{x0:minX,y0:minY,x1:maxX,y1:maxY}};
+    }}
+
+    svg.addEventListener('mousedown', e => {{
+      if(placingType) {{
+        const rect=root.getBoundingClientRect();
+        const[mx,my]=fromSVG(e.clientX-rect.left,e.clientY-rect.top-44);
+        placeNewFixture(snap(mx),snap(my)); return;
+      }}
+      if(placingFacility) {{
+        const rect=root.getBoundingClientRect();
+        const[mx,my]=fromSVG(e.clientX-rect.left,e.clientY-rect.top-44);
+        placeNewFacility(snap(mx),snap(my)); return;
+      }}
+      const rect=root.getBoundingClientRect();
+      const[mx,my]=fromSVG(e.clientX-rect.left,e.clientY-rect.top-44);
+      if(e.shiftKey) {{
+        isMarquee=true; marqueeX0=mx;marqueeY0=my;marqueeX1=mx;marqueeY1=my;
+      }} else if(selection.length>0) {{
+        const bbox=getSelectionBBox(); const pad=300;
+        if(mx>=bbox.x0-pad&&mx<=bbox.x1+pad&&my>=bbox.y0-pad&&my<=bbox.y1+pad) {{
+          dragOffX=mx;dragOffY=my;isDragging=false;
+          dragItems=[];dragStartPositions=[];
+          selection.forEach(s=>{{
+            let item;
+            if(s.type==='fixture') item=fixtures.find(f=>f.id===s.id);
+            else item=facilities.find(f=>f.id===s.id);
+            if(item) {{dragItems.push(item);dragStartPositions.push({{x:item.x,y:item.y}});}}
+          }});
+          saveUndo();
+        }} else {{
+          selection=[]; render();
+          isPanning=true; panStartX=e.clientX-rect.left-panX; panStartY=e.clientY-rect.top-44-panY;
+        }}
+      }} else {{
+        isPanning=true; panStartX=e.clientX-rect.left-panX; panStartY=e.clientY-rect.top-44-panY;
+      }}
+    }});
+
+    window.addEventListener('mousemove', e => {{
+      const rect=root.getBoundingClientRect();
+      const[mx,my]=fromSVG(e.clientX-rect.left,e.clientY-rect.top-44);
+      if(isResizing&&resizeFac) {{
+        const dx=snap(mx-resizeStartX),dy=snap(my-resizeStartY);
+        const MIN=200; const h=resizeHandle;
+        let nX=resizeOrigX,nY=resizeOrigY,nW=resizeOrigW,nH=resizeOrigH;
+        if(h.includes('e')) nW=Math.max(MIN,resizeOrigW+dx);
+        if(h.includes('w')) {{nW=Math.max(MIN,resizeOrigW-dx);nX=resizeOrigX+resizeOrigW-nW;}}
+        if(h.includes('s')) nH=Math.max(MIN,resizeOrigH+dy);
+        if(h.includes('n')) {{nH=Math.max(MIN,resizeOrigH-dy);nY=resizeOrigY+resizeOrigH-nH;}}
+        resizeFac.x=nX;resizeFac.y=nY;resizeFac.w=nW;resizeFac.h=nH;
+        render();
+      }}
+      if(dragItems.length>0) {{
+        isDragging=true;
+        const dx=snap(mx-dragOffX),dy=snap(my-dragOffY);
+        dragItems.forEach((item,i)=>{{
+          item.x=Math.max(0,Math.min(STORE_W-100,dragStartPositions[i].x+dx));
+          item.y=Math.max(0,Math.min(STORE_H-100,dragStartPositions[i].y+dy));
+        }});
+        render();
+      }}
+      if(isMarquee) {{
+        marqueeX1=mx;marqueeY1=my;
+        const x0=Math.min(marqueeX0,marqueeX1),x1=Math.max(marqueeX0,marqueeX1);
+        const y0=Math.min(marqueeY0,marqueeY1),y1=Math.max(marqueeY0,marqueeY1);
+        selection=[];
+        fixtures.forEach(fx=>{{
+          const t=TYPES[fx.type];
+          const fw=fx.orient==='V'?t.d:t.w,fh=fx.orient==='V'?t.w:t.d;
+          if(fx.x+fw>x0&&fx.x<x1&&fx.y+fh>y0&&fx.y<y1) selection.push({{type:'fixture',id:fx.id}});
+        }});
+        facilities.forEach(fac=>{{
+          if(fac.x+fac.w>x0&&fac.x<x1&&fac.y+fac.h>y0&&fac.y<y1) selection.push({{type:'facility',id:fac.id}});
+        }});
+        render();
+      }}
+      if(isPanning) {{
+        panX=e.clientX-rect.left-panStartX; panY=e.clientY-rect.top-44-panStartY;
+        render();
+      }}
+    }});
+
+    window.addEventListener('mouseup',()=>{{ dragItems=[];dragStartPositions=[];isPanning=false;isMarquee=false;isResizing=false;resizeFac=null; }});
+
+    svg.addEventListener('wheel', e => {{
+      if(!e.ctrlKey&&!e.metaKey) return;
+      e.preventDefault();
+      const rect=root.getBoundingClientRect();
+      const[mx,my]=fromSVG(e.clientX-rect.left,e.clientY-rect.top-44);
+      const factor=e.deltaY<0?1.15:1/1.15;
+      const newScale=Math.max(0.01,Math.min(0.15,scale*factor));
+      panX=(e.clientX-rect.left)-mx*newScale;
+      panY=(e.clientY-rect.top-44)-my*newScale;
+      scale=newScale;
+      render();
+    }}, {{passive:false}});
+
+    document.addEventListener('keydown', e => {{
+      if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+      if(e.key==='Delete'||e.key==='Backspace') {{deleteSelected();e.preventDefault();}}
+      if(e.key==='r'||e.key==='R') rotateSelected();
+      if((e.key==='z'||e.key==='Z')&&(e.metaKey||e.ctrlKey)) {{undoAction();e.preventDefault();}}
+      if((e.key==='a'||e.key==='A')&&(e.metaKey||e.ctrlKey)) {{selectAll();e.preventDefault();}}
+      if(e.key==='Escape') {{placingType=null;placingFacility=null;selection=[];render();}}
+    }});
+
+    function rotateSelected() {{
+      if(selection.length===0) return; saveUndo();
+      selection.forEach(s=>{{
+        if(s.type==='fixture') {{ const fx=fixtures.find(f=>f.id===s.id); if(fx) fx.orient=fx.orient==='V'?'H':'V'; }}
+        else {{ const fac=facilities.find(f=>f.id===s.id); if(fac) {{const tmp=fac.w;fac.w=fac.h;fac.h=tmp;}} }}
+      }});
+      render();
+    }}
+    function deleteSelected() {{
+      if(selection.length===0) return; saveUndo();
+      const fxIds=new Set(selection.filter(s=>s.type==='fixture').map(s=>s.id));
+      const facIds=new Set(selection.filter(s=>s.type==='facility').map(s=>s.id));
+      fixtures=fixtures.filter(f=>!fxIds.has(f.id));
+      facilities=facilities.filter(f=>!facIds.has(f.id));
+      selection=[]; render();
+    }}
+    function startResize(e,fac,handle) {{
+      isResizing=true;resizeFac=fac;resizeHandle=handle;
+      const rect=root.getBoundingClientRect();
+      const[mx,my]=fromSVG(e.clientX-rect.left,e.clientY-rect.top-44);
+      resizeStartX=mx;resizeStartY=my;
+      resizeOrigX=fac.x;resizeOrigY=fac.y;resizeOrigW=fac.w;resizeOrigH=fac.h;
+      saveUndo();
+    }}
+    function selectAll() {{
+      selection=[];
+      fixtures.forEach(f=>selection.push({{type:'fixture',id:f.id}}));
+      facilities.forEach(f=>selection.push({{type:'facility',id:f.id}}));
+      render();
+    }}
+
+    function addFixture(type) {{
+      placingType=type;placingFacility=null;
+      document.getElementById('statusText').textContent=type+' 배치 중 — 클릭으로 위치 지정 (Esc 취소)';
+    }}
+    function placeNewFixture(x,y) {{
+      if(!placingType) return; saveUndo();
+      const type=placingType;
+      const existing=fixtures.filter(f=>f.type===type);
+      const no=existing.length>0?Math.max(...existing.map(f=>f.no))+1:1;
+      fixtures.push({{id:type+'-'+no,type,no,x,y,orient:'V',zone:'',label:''}});
+      placingType=null;
+      selection=[{{type:'fixture',id:type+'-'+no}}]; render();
+    }}
+    function addFacilityFromSelect(sel) {{
+      const name=sel.value; if(!name) return; sel.value='';
+      placingFacility=name;placingType=null;
+      document.getElementById('statusText').textContent=name+' 배치 중 — 클릭으로 위치 지정 (Esc 취소)';
+    }}
+    function placeNewFacility(x,y) {{
+      if(!placingFacility) return; saveUndo();
+      const name=placingFacility;
+      const ft=FACILITY_TYPES[name]||FACILITY_TYPES['기타'];
+      const maxNo=facilities.length>0?Math.max(...facilities.map(f=>parseInt(f.id.split('-')[1])||0)):0;
+      const id='fac-'+(maxNo+1);
+      facilities.push({{id,name,x,y,w:ft.w,h:ft.h,label:''}});
+      placingFacility=null;
+      selection=[{{type:'facility',id}}]; render();
+    }}
+
+    function undoAction() {{
+      if(undoStack.length===0) return;
+      const state=JSON.parse(undoStack.pop());
+      fixtures=state.fixtures||[];facilities=state.facilities||[];
+      selection=[]; render();
+    }}
+
+    function updateStatus() {{
+      if(!placingType&&!placingFacility) {{
+        const a=fixtures.filter(f=>f.type==='A').length;
+        const b=fixtures.filter(f=>f.type==='B').length;
+        const c=fixtures.filter(f=>f.type==='C').length;
+        let msg='A:'+a+' B:'+b+' C:'+c+' (총 '+(a+b+c)+'대)';
+        if(selection.length>0) msg+=' | 선택: '+selection.length+'개';
+        document.getElementById('statusText').textContent=msg;
+      }}
+    }}
+
+    function saveLayout() {{
+      const btn=document.getElementById('saveBtn');
+      btn.textContent='저장 중...'; btn.style.background='#888';
+      const data=JSON.stringify({{
+        fixtures:fixtures.map(f=>({{id:f.id,type:f.type,no:f.no,x:Math.round(f.x),y:Math.round(f.y),orient:f.orient,zone:f.zone||'',label:f.label||''}})),
+        facilities:facilities.map(f=>({{id:f.id,name:f.name,x:Math.round(f.x),y:Math.round(f.y),w:Math.round(f.w),h:Math.round(f.h),label:f.label||''}})),
+      }});
+      fetch('http://localhost:8503/save-foreon-layout', {{
+        method:'POST',
+        headers:{{'Content-Type':'application/json'}},
+        body:data,
+      }})
+      .then(r=>r.json())
+      .then(res=>{{
+        btn.textContent='저장 완료!'; btn.style.background='#27ae60';
+        setTimeout(()=>{{btn.textContent='레이아웃 저장';btn.style.background='#FF8C00';}},2500);
+      }})
+      .catch(err=>{{
+        btn.textContent='저장 실패!'; btn.style.background='#e74c3c';
+        setTimeout(()=>{{btn.textContent='레이아웃 저장';btn.style.background='#FF8C00';}},3000);
+      }});
+    }}
+
+    function fitView() {{
+      const ww=root.clientWidth,wh=root.clientHeight-44;
+      const sx=(ww-40)/STORE_W,sy=(wh-40)/STORE_H;
+      scale=Math.min(sx,sy);
+      panX=(ww-STORE_W*scale)/2;
+      panY=(wh-STORE_H*scale)/2;
+    }}
+
+    fitView(); render();
+    window.addEventListener('resize',()=>{{fitView();render();}});
+    </script>
+    """
+
+    from streamlit.components.v1 import html as st_html
+
+    st.info("드래그: 화면이동 | Shift+드래그: 범위선택 | R: 회전 | Del: 삭제 | Ctrl+스크롤: 확대/축소")
+    st_html(_foreon_editor_html, height=540, scrolling=False)
 
     st.divider()
 
-    # ── Step 2: 매장 배치도 시뮬레이션 ──
-    st.markdown("## Step 2. 매장 배치도 시뮬레이션")
+    # ── Step 3: 매대별 상품 배정 ──
+    st.markdown("## Step 3. 매대별 상품 배정")
 
-    fixtures = _auto_arrange_fixtures(num_a, num_b, num_c)
+    _fp = st.session_state.foreon_placements
+    _fp_df = pd.DataFrame(_fp) if _fp else pd.DataFrame()
 
-    fig = go.Figure()
+    tab_view, tab_edit = st.tabs(["📋 현재 배정 현황", "✏️ 배정 변경"])
 
-    # 매장 외벽
-    fig.add_shape(type="rect", x0=0, y0=0, x1=FOREON_W, y1=FOREON_H,
-                  line=dict(color="black", width=2), fillcolor="rgba(245,245,245,0.5)")
+    with tab_view:
+        if not _fp_df.empty:
+            # 매대별 요약
+            _view_cols = ["shelf_type", "fixture_no", "tier", "product_name"]
+            _available = [c for c in _view_cols if c in _fp_df.columns]
+            if _available:
+                # 필터
+                _vf_type = st.selectbox("매대 타입 필터", ["전체", "A", "B", "C"], key="fp_view_filter")
+                _view = _fp_df[_available].copy()
+                if _vf_type != "전체":
+                    _view = _view[_view["shelf_type"] == _vf_type]
 
-    # 고정 시설물
-    fixed_elements = [
-        # 전면 (입구쪽, y가 큼 = 하단)
-        {"name": "입구", "x": FOREON_W - 3500, "y": FOREON_H - 500, "w": 2500, "h": 500, "c": "#DDD"},
-        {"name": "POS", "x": 400, "y": FOREON_H - 1600, "w": 1800, "h": 1000, "c": "#E8D5B7"},
-        {"name": "프로모션 존", "x": 8000, "y": FOREON_H - 1400, "w": 3000, "h": 1000, "c": "#FCE4EC"},
-        {"name": "대기 공간", "x": 18000, "y": FOREON_H - 1400, "w": 2000, "h": 1000, "c": "#E8F5E9"},
-        # 후면 (벽쪽, y가 작음 = 상단)
-        {"name": "조제실", "x": 200, "y": 200, "w": 3500, "h": 2200, "c": "#D4E6F1"},
-        {"name": "약품 수납장", "x": 3900, "y": 200, "w": 3000, "h": 1200, "c": "#F3E5F5"},
-        {"name": "냉장고", "x": FOREON_W - 1500, "y": 200, "w": 1300, "h": 3000, "c": "#B3E5FC"},
-        {"name": "창고", "x": FOREON_W - 1500, "y": 3400, "w": 1300, "h": 2000, "c": "#E8E8E8"},
-    ]
+                _view = _view.sort_values(["shelf_type", "fixture_no", "tier"] if "tier" in _view.columns else ["shelf_type", "fixture_no"])
 
-    for f in fixed_elements:
-        fig.add_shape(type="rect",
-                      x0=f["x"], y0=f["y"], x1=f["x"] + f["w"], y1=f["y"] + f["h"],
-                      line=dict(color="#999", width=1), fillcolor=f["c"])
-        fig.add_annotation(x=f["x"] + f["w"] / 2, y=f["y"] + f["h"] / 2,
-                           text=f["name"], showarrow=False,
-                           font=dict(size=9, color="#666"))
+                _view_renamed = _view.rename(columns={
+                    "shelf_type": "매대 타입", "fixture_no": "매대 번호",
+                    "tier": "단", "product_name": "상품명",
+                })
+                st.dataframe(_view_renamed, use_container_width=True, hide_index=True, height=400)
+                st.caption(f"총 {len(_view)}건 배정")
 
-    # 매대 그리기
-    for fx in fixtures:
-        stype = fx["shelf_type"]
-        fig.add_shape(
-            type="rect",
-            x0=fx["x"], y0=fx["y"],
-            x1=fx["x"] + fx["w"], y1=fx["y"] + fx["h"],
-            line=dict(color=TYPE_COLORS[stype], width=1.5),
-            fillcolor=TYPE_COLORS_LIGHT[stype],
-        )
-        fig.add_annotation(
-            x=fx["x"] + fx["w"] / 2, y=fx["y"] + fx["h"] / 2,
-            text=f"{stype}-{fx['fixture_no']}", showarrow=False,
-            font=dict(size=6, color="black"),
-        )
+                # 카테고리별 요약
+                if "erp_category" in _fp_df.columns:
+                    st.markdown("### 카테고리 분포")
+                    _cat_counts = _fp_df["erp_category"].value_counts().reset_index()
+                    _cat_counts.columns = ["카테고리", "SKU 수"]
+                    fig_cat = px.bar(_cat_counts.head(15), x="카테고리", y="SKU 수",
+                                    title="포레온 배정 상품 카테고리 분포 (상위 15)",
+                                    color="SKU 수", color_continuous_scale="Blues")
+                    fig_cat.update_layout(height=350)
+                    st.plotly_chart(fig_cat, use_container_width=True)
+            else:
+                st.info("배정 데이터에 매대 정보가 없습니다.")
+        else:
+            st.info("배정된 상품이 없습니다.")
 
-    # 통로 방향 화살표 (동선 가이드)
-    fig.add_annotation(
-        x=FOREON_W // 2, y=FOREON_H - 300,
-        ax=FOREON_W // 2, ay=FOREON_H - 1500,
-        text="동선", showarrow=True,
-        arrowhead=2, arrowsize=1.5, arrowcolor="#999",
-        font=dict(size=8, color="#999"),
-    )
+    with tab_edit:
+        st.markdown("### 배정 변경")
+        st.caption("매대/단을 선택하고 상품을 변경하세요. 이수점 데이터는 영향 받지 않습니다.")
 
-    # 범례
-    for stype, color in TYPE_COLORS.items():
-        name = SHELF_CONFIGS[stype]["name"]
-        count = {"A": num_a, "B": num_b, "C": num_c}[stype]
-        fig.add_trace(go.Scatter(
-            x=[None], y=[None], mode="markers",
-            marker=dict(size=12, color=color, symbol="square"),
-            name=f"{stype} ({name}) — {count}대",
-            showlegend=True,
+        # 매대 선택
+        _edit_c1, _edit_c2, _edit_c3 = st.columns(3)
+        _edit_type = _edit_c1.selectbox("매대 타입", ["A", "B", "C"], key="fp_edit_type")
+        _type_fxs = sorted(set(
+            f["no"] for f in st.session_state.foreon_fixtures if f["type"] == _edit_type
         ))
+        _edit_no = _edit_c2.selectbox("매대 번호", _type_fxs if _type_fxs else [1], key="fp_edit_no")
+        _edit_tier = _edit_c3.selectbox("단", [1, 2, 3, 4, 5], key="fp_edit_tier")
 
-    fig.update_layout(
-        title=f"포레온 매장 배치도 ({FOREON_W / 1000:.1f}m × {FOREON_H / 1000:.1f}m)",
-        width=1100, height=450,
-        xaxis=dict(range=[-500, FOREON_W + 500], scaleanchor="y", scaleratio=1,
-                   showgrid=False, zeroline=False, showticklabels=False),
-        yaxis=dict(range=[-500, FOREON_H + 500],
-                   showgrid=False, zeroline=False, showticklabels=False),
-        margin=dict(l=20, r=20, t=50, b=20),
-        plot_bgcolor="white",
-        legend=dict(orientation="h", yanchor="bottom", y=-0.15),
-    )
+        # 현재 해당 위치 배정 상품
+        if not _fp_df.empty and "shelf_type" in _fp_df.columns:
+            _current = _fp_df[
+                (_fp_df["shelf_type"] == _edit_type) &
+                (_fp_df["fixture_no"] == _edit_no) &
+                (_fp_df["tier"] == _edit_tier)
+            ]
+        else:
+            _current = pd.DataFrame()
 
-    st.plotly_chart(fig, use_container_width=True)
-    st.divider()
+        if not _current.empty:
+            st.markdown(f"**현재 배정:** {', '.join(_current['product_name'].tolist())}")
+        else:
+            st.markdown("**현재 배정:** (비어있음)")
 
-    # ── Step 3: 상품 배정 시뮬레이션 ──
-    st.markdown("## Step 3. 상품 배정 시뮬레이션")
+        # 상품 선택
+        _product_list = load_product_list()
+        if not _product_list.empty and "name" in _product_list.columns:
+            _product_names = sorted(_product_list["name"].dropna().unique().tolist())
+        else:
+            _product_names = []
 
-    with st.spinner("매출 데이터 기반 상품 배정 중..."):
-        assigned, summary = _assign_products_sim(num_a, num_b, num_c)
+        _new_product = st.selectbox(
+            "배정할 상품",
+            _product_names,
+            index=None,
+            placeholder="상품을 선택하세요...",
+            key="fp_edit_product",
+        )
 
-    if not isinstance(assigned, pd.DataFrame) or assigned.empty or not summary:
-        st.info("매출/치수 데이터를 불러올 수 없습니다. Supabase 연결을 확인하세요.")
-    else:
-        s1, s2, s3, s4 = st.columns(4)
-        s1.metric("배정 상품 수", f"{summary['assigned_count']}개")
-        s2.metric("총 수용 가능", f"{summary['total_capacity']}개")
-        s3.metric("선반 활용률", f"{summary['utilization']}%")
-        s4.metric("매출 커버리지", f"{summary['total_sales_coverage']}%")
+        _edit_btn_col1, _edit_btn_col2 = st.columns(2)
+
+        with _edit_btn_col1:
+            if st.button("배정 추가", type="primary", key="fp_add_btn", use_container_width=True):
+                if _new_product:
+                    # product 정보 가져오기
+                    _p_info = {}
+                    if not _product_list.empty:
+                        _match = _product_list[_product_list["name"] == _new_product]
+                        if not _match.empty:
+                            _p_info = _match.iloc[0].to_dict()
+
+                    new_entry = {
+                        "shelf_type": _edit_type,
+                        "fixture_no": _edit_no,
+                        "tier": _edit_tier,
+                        "product_name": _new_product,
+                        "product_id": _p_info.get("id", ""),
+                        "erp_category": _p_info.get("erp_category", "기타"),
+                        "position_start": 1,
+                        "position_end": 1,
+                    }
+                    st.session_state.foreon_placements.append(new_entry)
+                    st.success(f"'{_new_product}' → {_edit_type}-{_edit_no} / {_edit_tier}단 배정 완료")
+                    st.rerun()
+                else:
+                    st.warning("상품을 선택하세요.")
+
+        with _edit_btn_col2:
+            if st.button("이 위치 비우기", key="fp_clear_btn", use_container_width=True):
+                _before = len(st.session_state.foreon_placements)
+                st.session_state.foreon_placements = [
+                    p for p in st.session_state.foreon_placements
+                    if not (p.get("shelf_type") == _edit_type and
+                            p.get("fixture_no") == _edit_no and
+                            p.get("tier") == _edit_tier)
+                ]
+                _removed = _before - len(st.session_state.foreon_placements)
+                if _removed > 0:
+                    st.success(f"{_edit_type}-{_edit_no} / {_edit_tier}단 배정 {_removed}건 제거")
+                    st.rerun()
+                else:
+                    st.info("제거할 배정이 없습니다.")
 
         st.divider()
 
-        col_a, col_b = st.columns(2)
+        # 전체 초기화
+        if st.button("🔄 이수점 데이터로 초기화", key="fp_reset_btn"):
+            _isu_reset = get_current_placements()
+            if not _isu_reset.empty:
+                st.session_state.foreon_placements = _isu_reset.to_dict("records")
+                st.success("이수점 배치 데이터로 초기화 완료")
+                st.rerun()
+            else:
+                st.warning("이수점 배치 데이터를 불러올 수 없습니다.")
 
-        with col_a:
-            st.markdown("### 카테고리별 배정 현황")
-            cat_agg = (
-                assigned.groupby("category")
-                .agg(SKU수=("product_name", "count"), 매출합계=("total_sales", "sum"))
-                .reset_index()
-                .sort_values("매출합계", ascending=False)
-            )
-            if not cat_agg.empty:
-                import plotly.express as px
-                fig_tree = px.treemap(
-                    cat_agg, path=["category"], values="SKU수",
-                    color="매출합계", color_continuous_scale="Blues",
-                    title="카테고리별 SKU 배정",
-                )
-                fig_tree.update_layout(margin=dict(t=40, l=10, r=10, b=10), height=400)
-                st.plotly_chart(fig_tree, use_container_width=True)
-
-        with col_b:
-            st.markdown("### 사이즈 클래스 분포")
-            size_agg = assigned["size_class"].value_counts().reset_index()
-            size_agg.columns = ["size_class", "count"]
-            size_labels = {"tall": "키 큰 (>23cm)", "medium": "보통 (15~23cm)", "short": "작은 (<15cm)"}
-            size_agg["label"] = size_agg["size_class"].map(size_labels).fillna(size_agg["size_class"])
-            import plotly.express as px
-            fig_size = px.pie(
-                size_agg, names="label", values="count",
-                title="배정 상품 사이즈 분포",
-                color_discrete_sequence=["#4A90D9", "#50C878", "#FF8C00"],
-            )
-            fig_size.update_layout(height=400)
-            st.plotly_chart(fig_size, use_container_width=True)
-
-        st.markdown("### 선반 활용률")
-        fig_gauge = go.Figure(go.Indicator(
-            mode="gauge+number+delta",
-            value=summary["utilization"],
-            title={"text": "선반 활용률 (%)"},
-            delta={"reference": 80, "increasing": {"color": "#50C878"}},
-            gauge={
-                "axis": {"range": [0, 100]},
-                "bar": {"color": "#4A90D9"},
-                "steps": [
-                    {"range": [0, 50], "color": "#FFE0E0"},
-                    {"range": [50, 80], "color": "#FFF3CD"},
-                    {"range": [80, 100], "color": "#D4EDDA"},
-                ],
-                "threshold": {"line": {"color": "red", "width": 2}, "value": 90},
-            },
-        ))
-        fig_gauge.update_layout(height=300)
-        st.plotly_chart(fig_gauge, use_container_width=True)
