@@ -106,6 +106,20 @@ def _start_layout_api():
                 self.end_headers()
                 fx_count = len(data.get("fixtures", []))
                 self.wfile.write(_json.dumps({"ok": True, "count": fx_count}).encode())
+            elif self.path == "/foreon-select-fixture":
+                length = int(self.headers["Content-Length"])
+                data = _json.loads(self.rfile.read(length))
+                fx_id = data.get("fixture_id", "")
+                try:
+                    with open("/tmp/foreon_selected_fx.txt", "w") as f:
+                        f.write(fx_id)
+                except Exception:
+                    pass
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(_json.dumps({"ok": True, "fixture_id": fx_id}).encode())
             else:
                 self.send_response(404)
                 self.end_headers()
@@ -3992,6 +4006,8 @@ elif menu == "🏪 포레온 시뮬레이션":
         const fontSize = Math.max(6, Math.min(11, Math.min(dx, dy) * 0.4));
         addText(g, rx + dx/2, ry + dy/2, label, fontSize, isSel ? '#fff' : '#333');
         g.addEventListener('mousedown', e => onFixtureMouseDown(e, fx));
+        g.addEventListener('dblclick', e => {{ e.stopPropagation(); onFixtureDblClick(fx); }});
+        g.style.cursor = 'pointer';
         svg.appendChild(g);
       }});
 
@@ -4192,6 +4208,18 @@ elif menu == "🏪 포레온 시뮬레이션":
       render();
     }}
 
+    function onFixtureDblClick(fx) {{
+      fetch('http://localhost:8503/foreon-select-fixture', {{
+        method:'POST',
+        headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{fixture_id: fx.id}}),
+      }}).then(()=>{{
+        window.parent.postMessage({{type:'streamlit:setComponentValue',value:fx.id}}, '*');
+        window.parent.location.hash = 'foreon-detail-' + fx.id;
+        window.parent.location.reload();
+      }}).catch(()=>{{}});
+    }}
+
     function addFixture(type) {{
       placingType=type;placingFacility=null;
       document.getElementById('statusText').textContent=type+' 배치 중 — 클릭으로 위치 지정 (Esc 취소)';
@@ -4277,141 +4305,279 @@ elif menu == "🏪 포레온 시뮬레이션":
 
     from streamlit.components.v1 import html as st_html
 
-    st.info("드래그: 화면이동 | Shift+드래그: 범위선택 | R: 회전 | Del: 삭제 | Ctrl+스크롤: 확대/축소")
+    st.info("드래그: 화면이동 | Shift+드래그: 범위선택 | R: 회전 | Del: 삭제 | Ctrl+스크롤: 확대/축소 | **더블클릭: 매대 상세보기**")
     st_html(_foreon_editor_html, height=540, scrolling=False)
 
     st.divider()
 
-    # ── Step 3: 매대별 상품 배정 ──
-    st.markdown("## Step 3. 매대별 상품 배정")
+    # ── Step 3: 매대 상세보기 & 상품 배정 ──
+    st.markdown("## Step 3. 매대 상세보기 & 상품 배정")
 
     _fp = st.session_state.foreon_placements
     _fp_df = pd.DataFrame(_fp) if _fp else pd.DataFrame()
 
-    tab_view, tab_edit = st.tabs(["📋 현재 배정 현황", "✏️ 배정 변경"])
+    # 더블클릭으로 선택된 매대 읽기
+    _dblclick_fx = None
+    try:
+        with open("/tmp/foreon_selected_fx.txt", "r") as f:
+            _dblclick_fx = f.read().strip()
+        # 읽은 후 파일 초기화
+        with open("/tmp/foreon_selected_fx.txt", "w") as f:
+            f.write("")
+    except Exception:
+        pass
 
-    with tab_view:
-        if not _fp_df.empty:
-            # 매대별 요약
-            _view_cols = ["shelf_type", "fixture_no", "tier", "product_name"]
-            _available = [c for c in _view_cols if c in _fp_df.columns]
-            if _available:
-                # 필터
-                _vf_type = st.selectbox("매대 타입 필터", ["전체", "A", "B", "C"], key="fp_view_filter")
-                _view = _fp_df[_available].copy()
-                if _vf_type != "전체":
-                    _view = _view[_view["shelf_type"] == _vf_type]
+    # 더블클릭 결과를 세션에 저장
+    if _dblclick_fx:
+        st.session_state["foreon_detail_fx"] = _dblclick_fx
 
-                _view = _view.sort_values(["shelf_type", "fixture_no", "tier"] if "tier" in _view.columns else ["shelf_type", "fixture_no"])
+    # 매대 선택 드롭다운
+    _all_fx_ids = sorted(
+        [f["id"] for f in st.session_state.foreon_fixtures],
+        key=lambda x: (x[0], int(x.split("-")[1]) if "-" in x else 0)
+    )
 
-                _view_renamed = _view.rename(columns={
-                    "shelf_type": "매대 타입", "fixture_no": "매대 번호",
-                    "tier": "단", "product_name": "상품명",
-                })
-                st.dataframe(_view_renamed, use_container_width=True, hide_index=True, height=400)
-                st.caption(f"총 {len(_view)}건 배정")
+    _default_idx = 0
+    if "foreon_detail_fx" in st.session_state and st.session_state["foreon_detail_fx"] in _all_fx_ids:
+        _default_idx = _all_fx_ids.index(st.session_state["foreon_detail_fx"])
 
-                # 카테고리별 요약
-                if "erp_category" in _fp_df.columns:
-                    st.markdown("### 카테고리 분포")
-                    _cat_counts = _fp_df["erp_category"].value_counts().reset_index()
-                    _cat_counts.columns = ["카테고리", "SKU 수"]
-                    fig_cat = px.bar(_cat_counts.head(15), x="카테고리", y="SKU 수",
-                                    title="포레온 배정 상품 카테고리 분포 (상위 15)",
-                                    color="SKU 수", color_continuous_scale="Blues")
-                    fig_cat.update_layout(height=350)
-                    st.plotly_chart(fig_cat, use_container_width=True)
-            else:
-                st.info("배정 데이터에 매대 정보가 없습니다.")
-        else:
-            st.info("배정된 상품이 없습니다.")
+    _sel_fx = st.selectbox(
+        "매대 선택 (배치도에서 더블클릭 또는 여기서 선택)",
+        _all_fx_ids,
+        index=_default_idx,
+        key="foreon_fx_select",
+    )
 
-    with tab_edit:
-        st.markdown("### 배정 변경")
-        st.caption("매대/단을 선택하고 상품을 변경하세요. 이수점 데이터는 영향 받지 않습니다.")
+    if _sel_fx:
+        st.session_state["foreon_detail_fx"] = _sel_fx
 
-        # 매대 선택
-        _edit_c1, _edit_c2, _edit_c3 = st.columns(3)
-        _edit_type = _edit_c1.selectbox("매대 타입", ["A", "B", "C"], key="fp_edit_type")
-        _type_fxs = sorted(set(
-            f["no"] for f in st.session_state.foreon_fixtures if f["type"] == _edit_type
-        ))
-        _edit_no = _edit_c2.selectbox("매대 번호", _type_fxs if _type_fxs else [1], key="fp_edit_no")
-        _edit_tier = _edit_c3.selectbox("단", [1, 2, 3, 4, 5], key="fp_edit_tier")
+        # 선택된 매대 정보
+        _stype = _sel_fx.split("-")[0]
+        _sno = int(_sel_fx.split("-")[1]) if "-" in _sel_fx else 1
+        _cfg = SHELF_CONFIGS.get(_stype, {})
+        _n_tiers = len(_cfg.get("tiers", [5]))
+        _shelf_width_cm = _cfg.get("width", 90)
+        _tier_heights = _cfg.get("tiers", [25, 25, 25, 25, 25])
 
-        # 현재 해당 위치 배정 상품
+        # 해당 매대의 배정 데이터
         if not _fp_df.empty and "shelf_type" in _fp_df.columns:
-            _current = _fp_df[
-                (_fp_df["shelf_type"] == _edit_type) &
-                (_fp_df["fixture_no"] == _edit_no) &
-                (_fp_df["tier"] == _edit_tier)
+            _fx_data = _fp_df[
+                (_fp_df["shelf_type"] == _stype) &
+                (_fp_df["fixture_no"] == _sno)
             ]
         else:
-            _current = pd.DataFrame()
+            _fx_data = pd.DataFrame()
 
-        if not _current.empty:
-            st.markdown(f"**현재 배정:** {', '.join(_current['product_name'].tolist())}")
-        else:
-            st.markdown("**현재 배정:** (비어있음)")
+        # KPI
+        _fx_prods = len(_fx_data) if not _fx_data.empty else 0
+        _fx_tiers_used = _fx_data["tier"].nunique() if not _fx_data.empty and "tier" in _fx_data.columns else 0
+        kpi1, kpi2, kpi3 = st.columns(3)
+        kpi1.metric("매대", f"{_sel_fx} ({_cfg.get('name', '')})")
+        kpi2.metric("배치 상품수", f"{_fx_prods}개")
+        kpi3.metric("사용 단수", f"{_fx_tiers_used} / {_n_tiers}단")
 
-        # 상품 선택
-        _product_list = load_product_list()
-        if not _product_list.empty and "name" in _product_list.columns:
-            _product_names = sorted(_product_list["name"].dropna().unique().tolist())
-        else:
-            _product_names = []
+        # ── 정면도 (칸으로 보기) ──
+        _max_pos = 1
+        if not _fx_data.empty:
+            for _, r in _fx_data.iterrows():
+                pe = int(r.get("position_end") or 1)
+                if pe > _max_pos:
+                    _max_pos = pe
+        _max_pos = max(_max_pos, 6)
 
-        _new_product = st.selectbox(
-            "배정할 상품",
-            _product_names,
-            index=None,
-            placeholder="상품을 선택하세요...",
-            key="fp_edit_product",
-        )
-
-        _edit_btn_col1, _edit_btn_col2 = st.columns(2)
-
-        with _edit_btn_col1:
-            if st.button("배정 추가", type="primary", key="fp_add_btn", use_container_width=True):
-                if _new_product:
-                    # product 정보 가져오기
-                    _p_info = {}
-                    if not _product_list.empty:
-                        _match = _product_list[_product_list["name"] == _new_product]
-                        if not _match.empty:
-                            _p_info = _match.iloc[0].to_dict()
-
-                    new_entry = {
-                        "shelf_type": _edit_type,
-                        "fixture_no": _edit_no,
-                        "tier": _edit_tier,
-                        "product_name": _new_product,
-                        "product_id": _p_info.get("id", ""),
-                        "erp_category": _p_info.get("erp_category", "기타"),
-                        "position_start": 1,
-                        "position_end": 1,
+        _grid = {}
+        if not _fx_data.empty:
+            for _, r in _fx_data.iterrows():
+                tier = int(r.get("tier", 1))
+                ps = int(r.get("position_start") or 1)
+                pe = int(r.get("position_end") or 1)
+                for pos in range(ps, pe + 1):
+                    _grid[(tier, pos)] = {
+                        "name": r.get("product_name", ""),
+                        "category": r.get("erp_category", "") or "",
+                        "span_start": ps, "span_end": pe,
                     }
-                    st.session_state.foreon_placements.append(new_entry)
-                    st.success(f"'{_new_product}' → {_edit_type}-{_edit_no} / {_edit_tier}단 배정 완료")
-                    st.rerun()
-                else:
-                    st.warning("상품을 선택하세요.")
 
-        with _edit_btn_col2:
-            if st.button("이 위치 비우기", key="fp_clear_btn", use_container_width=True):
-                _before = len(st.session_state.foreon_placements)
-                st.session_state.foreon_placements = [
-                    p for p in st.session_state.foreon_placements
-                    if not (p.get("shelf_type") == _edit_type and
-                            p.get("fixture_no") == _edit_no and
-                            p.get("tier") == _edit_tier)
-                ]
-                _removed = _before - len(st.session_state.foreon_placements)
-                if _removed > 0:
-                    st.success(f"{_edit_type}-{_edit_no} / {_edit_tier}단 배정 {_removed}건 제거")
-                    st.rerun()
+        _grid_json = {}
+        for (tier, pos), v in _grid.items():
+            _grid_json[f"{tier}-{pos}"] = {
+                "name": v["name"], "category": v["category"],
+                "span_start": v["span_start"], "span_end": v["span_end"],
+            }
+
+        # 카테고리 색상
+        _all_cats = sorted(set(v.get("category", "") for v in _grid.values()) - {""})
+        _palette = ["#FF6B6B","#4ECDC4","#45B7D1","#96CEB4","#FFEAA7","#DDA0DD","#98D8C8","#F7DC6F","#BB8FCE","#85C1E9","#F0B27A","#82E0AA"]
+        _cat_colors = {c: _palette[i % len(_palette)] for i, c in enumerate(_all_cats)}
+
+        _detail_html = f"""
+        <div id="foreon-shelf-root" style="width:100%;background:#1a1a2e;border:1px solid #333;border-radius:8px;overflow-x:auto;padding:16px;">
+          <div style="color:#fff;font-size:16px;font-weight:bold;margin-bottom:12px;font-family:-apple-system,sans-serif;">
+            {_sel_fx} 매대 정면도
+            <span style="font-size:12px;color:#888;font-weight:normal;margin-left:8px;">
+              ({_cfg.get('name','')}, {_shelf_width_cm}cm, {_n_tiers}단)
+            </span>
+          </div>
+          <svg id="foreon-shelf-svg"></svg>
+          <div id="foreon-shelf-tooltip" style="position:fixed;display:none;background:rgba(0,0,0,0.9);color:#fff;padding:10px 14px;border-radius:6px;font-size:12px;pointer-events:none;z-index:9999;max-width:280px;box-shadow:0 4px 12px rgba(0,0,0,0.5);font-family:-apple-system,sans-serif;"></div>
+        </div>
+        <script>
+        (function() {{
+          const nTiers = {_n_tiers};
+          const maxPos = {_max_pos};
+          const grid = {_json.dumps(_grid_json, ensure_ascii=False)};
+          const tierHeights = {_json.dumps(_tier_heights)};
+          const catColors = {_json.dumps(_cat_colors, ensure_ascii=False)};
+          const svgNS = 'http://www.w3.org/2000/svg';
+          const svg = document.getElementById('foreon-shelf-svg');
+          const tooltip = document.getElementById('foreon-shelf-tooltip');
+          const cellW = 90, cellH = 70, labelW = 60, padX = 10, padY = 10;
+          const totalW = labelW + maxPos * cellW + padX * 2;
+          const totalH = nTiers * cellH + padY * 2 + 30;
+          svg.setAttribute('width', totalW); svg.setAttribute('height', totalH); svg.style.display = 'block';
+          function fmt(n) {{ return n.toLocaleString('ko-KR'); }}
+          const bg = document.createElementNS(svgNS,'rect'); bg.setAttribute('width',totalW); bg.setAttribute('height',totalH); bg.setAttribute('fill','#1a1a2e'); bg.setAttribute('rx',6); svg.appendChild(bg);
+          for (let p=1;p<=maxPos;p++) {{ const t=document.createElementNS(svgNS,'text'); t.setAttribute('x',padX+labelW+(p-1)*cellW+cellW/2); t.setAttribute('y',padY+12); t.setAttribute('text-anchor','middle'); t.setAttribute('font-size',10); t.setAttribute('fill','#888'); t.setAttribute('font-family','-apple-system,sans-serif'); t.textContent=p+'번'; svg.appendChild(t); }}
+          const rendered = new Set();
+          for (let tier=nTiers;tier>=1;tier--) {{
+            const rowIdx=nTiers-tier, y=padY+24+rowIdx*cellH, th=tierHeights[tier-1], thLabel=th>=999?'무제한':th+'cm';
+            const lbl=document.createElementNS(svgNS,'text'); lbl.setAttribute('x',padX+labelW-6); lbl.setAttribute('y',y+cellH/2); lbl.setAttribute('text-anchor','end'); lbl.setAttribute('dominant-baseline','central'); lbl.setAttribute('font-size',11); lbl.setAttribute('fill','#ccc'); lbl.setAttribute('font-family','-apple-system,sans-serif'); lbl.textContent=tier+'단'; svg.appendChild(lbl);
+            const lblS=document.createElementNS(svgNS,'text'); lblS.setAttribute('x',padX+labelW-6); lblS.setAttribute('y',y+cellH/2+13); lblS.setAttribute('text-anchor','end'); lblS.setAttribute('dominant-baseline','central'); lblS.setAttribute('font-size',8); lblS.setAttribute('fill','#666'); lblS.setAttribute('font-family','-apple-system,sans-serif'); lblS.textContent=thLabel; svg.appendChild(lblS);
+            for (let pos=1;pos<=maxPos;pos++) {{
+              const key=tier+'-'+pos, data=grid[key], x=padX+labelW+(pos-1)*cellW;
+              if (data && rendered.has(data.span_start+'-'+data.span_end+'-'+tier+'-'+data.name)) continue;
+              const g=document.createElementNS(svgNS,'g');
+              if (data) {{
+                const spanW=(data.span_end-data.span_start+1)*cellW, spanX=padX+labelW+(data.span_start-1)*cellW;
+                const catCol=catColors[data.category]||'#888';
+                rendered.add(data.span_start+'-'+data.span_end+'-'+tier+'-'+data.name);
+                const rect=document.createElementNS(svgNS,'rect'); rect.setAttribute('x',spanX+1); rect.setAttribute('y',y+1); rect.setAttribute('width',spanW-2); rect.setAttribute('height',cellH-2); rect.setAttribute('fill','#2d3a5e'); rect.setAttribute('stroke',catCol); rect.setAttribute('stroke-width',1.5); rect.setAttribute('rx',4); rect.setAttribute('fill-opacity',0.85); g.appendChild(rect);
+                const bar=document.createElementNS(svgNS,'rect'); bar.setAttribute('x',spanX+1); bar.setAttribute('y',y+1); bar.setAttribute('width',spanW-2); bar.setAttribute('height',3); bar.setAttribute('fill',catCol); bar.setAttribute('rx',4); g.appendChild(bar);
+                const mc=Math.max(3,Math.floor(spanW/9)); let nameText=data.name.length>mc?data.name.substring(0,mc-1)+'..':data.name;
+                const nt=document.createElementNS(svgNS,'text'); nt.setAttribute('x',spanX+spanW/2); nt.setAttribute('y',y+cellH/2-4); nt.setAttribute('text-anchor','middle'); nt.setAttribute('dominant-baseline','central'); nt.setAttribute('font-size',Math.min(10,Math.max(7,spanW/nameText.length*0.85))); nt.setAttribute('fill','#fff'); nt.setAttribute('font-family','-apple-system,sans-serif'); nt.textContent=nameText; g.appendChild(nt);
+                if (spanW>60) {{ const ct=document.createElementNS(svgNS,'text'); ct.setAttribute('x',spanX+spanW/2); ct.setAttribute('y',y+cellH/2+14); ct.setAttribute('text-anchor','middle'); ct.setAttribute('dominant-baseline','central'); ct.setAttribute('font-size',7); ct.setAttribute('fill','#999'); ct.setAttribute('font-family','-apple-system,sans-serif'); ct.textContent=data.category.length>8?data.category.substring(0,7)+'..':data.category; g.appendChild(ct); }}
+                g.style.cursor='pointer';
+                g.addEventListener('mouseenter',(e)=>{{ tooltip.innerHTML='<div style="font-weight:bold;margin-bottom:4px;">'+data.name+'</div><div>위치: '+tier+'단 '+(data.span_start===data.span_end?data.span_start+'번':data.span_start+'~'+data.span_end+'번')+'</div><div>카테고리: '+(data.category||'-')+'</div>'; tooltip.style.display='block'; }});
+                g.addEventListener('mousemove',(e)=>{{ tooltip.style.left=(e.clientX+12)+'px'; tooltip.style.top=(e.clientY-10)+'px'; }});
+                g.addEventListener('mouseleave',()=>{{ tooltip.style.display='none'; }});
+              }} else {{
+                const rect=document.createElementNS(svgNS,'rect'); rect.setAttribute('x',x+1); rect.setAttribute('y',y+1); rect.setAttribute('width',cellW-2); rect.setAttribute('height',cellH-2); rect.setAttribute('fill','#1e1e36'); rect.setAttribute('stroke','#333'); rect.setAttribute('stroke-width',0.5); rect.setAttribute('rx',4); rect.setAttribute('fill-opacity',0.5); g.appendChild(rect);
+              }}
+              svg.appendChild(g);
+            }}
+            const line=document.createElementNS(svgNS,'line'); line.setAttribute('x1',padX+labelW); line.setAttribute('y1',y+cellH); line.setAttribute('x2',padX+labelW+maxPos*cellW); line.setAttribute('y2',y+cellH); line.setAttribute('stroke','#333'); line.setAttribute('stroke-width',0.5); svg.appendChild(line);
+          }}
+        }})();
+        </script>
+        """
+        from streamlit.components.v1 import html as _detail_html_fn
+        _detail_html_fn(_detail_html, height=_n_tiers * 70 + 80, scrolling=True)
+
+        # ── 단별 상품 목록 & 배치 변경 ──
+        st.markdown("---")
+        st.markdown("### 단별 상품 배정")
+
+        for _t in range(_n_tiers, 0, -1):
+            _tier_prods = _fx_data[_fx_data["tier"] == _t] if not _fx_data.empty and "tier" in _fx_data.columns else pd.DataFrame()
+            _th = _tier_heights[_t - 1]
+            _th_label = "무제한" if _th >= 999 else f"{_th}cm"
+
+            with st.expander(f"**{_t}단** ({_th_label}) — {len(_tier_prods)}개 상품", expanded=False):
+                if not _tier_prods.empty:
+                    _tier_display = _tier_prods[["product_name", "erp_category", "position_start", "position_end"]].copy()
+                    _tier_display.columns = ["상품명", "카테고리", "시작 위치", "끝 위치"]
+                    st.dataframe(_tier_display, use_container_width=True, hide_index=True)
                 else:
-                    st.info("제거할 배정이 없습니다.")
+                    st.caption("배정된 상품이 없습니다.")
+
+                # 배치 상품 바꾸기
+                if st.button(f"배치 상품 바꾸기", key=f"fp_change_{_sel_fx}_{_t}", use_container_width=True):
+                    st.session_state[f"foreon_edit_tier_{_sel_fx}_{_t}"] = True
+
+                if st.session_state.get(f"foreon_edit_tier_{_sel_fx}_{_t}", False):
+                    st.markdown("---")
+                    _product_list = load_product_list()
+                    if not _product_list.empty and "name" in _product_list.columns:
+                        _product_names = sorted(_product_list["name"].dropna().unique().tolist())
+                    else:
+                        _product_names = []
+
+                    _new_product = st.selectbox(
+                        "배정할 상품",
+                        _product_names,
+                        index=None,
+                        placeholder="상품을 검색/선택하세요...",
+                        key=f"fp_prod_{_sel_fx}_{_t}",
+                    )
+
+                    _btn_c1, _btn_c2, _btn_c3 = st.columns(3)
+
+                    with _btn_c1:
+                        if st.button("추가", type="primary", key=f"fp_add_{_sel_fx}_{_t}", use_container_width=True):
+                            if _new_product:
+                                _p_info = {}
+                                if not _product_list.empty:
+                                    _match = _product_list[_product_list["name"] == _new_product]
+                                    if not _match.empty:
+                                        _p_info = _match.iloc[0].to_dict()
+                                new_entry = {
+                                    "shelf_type": _stype,
+                                    "fixture_no": _sno,
+                                    "tier": _t,
+                                    "product_name": _new_product,
+                                    "product_id": _p_info.get("id", ""),
+                                    "erp_category": _p_info.get("erp_category", "기타"),
+                                    "position_start": len(_tier_prods) + 1,
+                                    "position_end": len(_tier_prods) + 1,
+                                }
+                                st.session_state.foreon_placements.append(new_entry)
+                                st.success(f"'{_new_product}' → {_sel_fx} / {_t}단 배정")
+                                st.rerun()
+                            else:
+                                st.warning("상품을 선택하세요.")
+
+                    with _btn_c2:
+                        if st.button("이 단 비우기", key=f"fp_clear_{_sel_fx}_{_t}", use_container_width=True):
+                            _before = len(st.session_state.foreon_placements)
+                            st.session_state.foreon_placements = [
+                                p for p in st.session_state.foreon_placements
+                                if not (p.get("shelf_type") == _stype and
+                                        p.get("fixture_no") == _sno and
+                                        p.get("tier") == _t)
+                            ]
+                            _removed = _before - len(st.session_state.foreon_placements)
+                            if _removed > 0:
+                                st.success(f"{_sel_fx} / {_t}단 — {_removed}건 제거")
+                                st.rerun()
+                            else:
+                                st.info("제거할 배정이 없습니다.")
+
+                    with _btn_c3:
+                        if st.button("닫기", key=f"fp_close_{_sel_fx}_{_t}", use_container_width=True):
+                            st.session_state[f"foreon_edit_tier_{_sel_fx}_{_t}"] = False
+                            st.rerun()
+
+                    # 개별 상품 제거
+                    if not _tier_prods.empty:
+                        st.markdown("**개별 상품 제거:**")
+                        for idx, row in _tier_prods.iterrows():
+                            _pname = row.get("product_name", "")
+                            _col_name, _col_btn = st.columns([4, 1])
+                            _col_name.text(_pname)
+                            if _col_btn.button("제거", key=f"fp_rm_{_sel_fx}_{_t}_{idx}"):
+                                _found = False
+                                _new_placements = []
+                                for p in st.session_state.foreon_placements:
+                                    if (not _found and
+                                        p.get("shelf_type") == _stype and
+                                        p.get("fixture_no") == _sno and
+                                        p.get("tier") == _t and
+                                        p.get("product_name") == _pname):
+                                        _found = True
+                                        continue
+                                    _new_placements.append(p)
+                                st.session_state.foreon_placements = _new_placements
+                                st.rerun()
 
         st.divider()
 
