@@ -4143,7 +4143,7 @@ elif menu == "🏷️ 쇼카드 제작":
                     f'<svg xmlns="http://www.w3.org/2000/svg" '
                     f'viewBox="0 0 {total_w} {total_h}" '
                     f'width="{total_w}" height="{total_h}">'
-                    f'<svg x="{bleed_px}" y="{bleed_px}" width="{w_px}" height="{h_px}">'
+                    f'<svg x="{bleed_px}" y="{bleed_px}" width="{w_px}" height="{h_px}" viewBox="0 0 {w_px} {h_px}">'
                     f'{_svg_inner(svg_fixed)}'
                     f'</svg></svg>'
                 )
